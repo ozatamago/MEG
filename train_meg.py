@@ -183,7 +183,7 @@ def train(rank, world_size):
 
                     if node_idx in sampled_indices_set:
                         log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits/3 + 1e-9, new_neighbors)
-                        layer_log_probs.append(log_probs.item())
+                        layer_log_probs.append(log_probs)
 
                     # Use the generated new neighbors to update the new adjacency matrix
                     for i, neighbor_idx in enumerate(neighbor_indices):
