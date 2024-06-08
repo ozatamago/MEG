@@ -10,7 +10,7 @@ def load_model_weights(model, filename):
     filepath = os.path.join(weights_dir, filename)
     if os.path.exists(filepath):
         try:
-            model.load_state_dict(torch.load(filepath))
+            model.module.load_state_dict(torch.load(filepath))
         except RuntimeError as e:
             print(f"Failed to load {filepath}: {e}")
             os.remove(filepath)  # Remove corrupted file
@@ -40,7 +40,7 @@ def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
 
 def save_model_weights(model, filename):
     filepath = os.path.join(weights_dir, filename)
-    torch.save(model.state_dict(), filepath)
+    torch.module.save(model.state_dict(), filepath)
 
 def save_all_weights(adj_generators, gcn_models, v_networks, final_layer):
     for i, adj_generator in enumerate(adj_generators):
