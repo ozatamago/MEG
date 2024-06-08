@@ -8,11 +8,19 @@ class VNetwork(nn.Module):
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers)
         self.linear1 = nn.Linear(d_model, 1)  # Output single value
         self.linear2 = nn.Linear(num_samples, 1)  # Output single value
-        
 
     def forward(self, x):
-        # Assuming x is of shape (batch_size, seq_len, d_model) if batch_first=True
-        output = self.encoder(x)
-        output = self.linear1(output).squeeze(2)
-        output = self.linear2(output)
+        for layer in self.encoder.layers:
+            sa_output, _ = layer.self_attn(x, x, x, need_weights=False)
+            sa_output = sa_output.clone()  # Add this line to avoid in-place modification
+            sa_output = layer.dropout1(sa_output)
+            sa_output = layer.norm1(x + sa_output)
+
+            ff_output = layer.linear1(sa_output)
+            ff_output = layer.dropout(layer.activation(ff_output))
+            ff_output = layer.linear2(ff_output)
+            x = layer.norm2(sa_output + layer.dropout2(ff_output))
+
+        output = nn.functional.linear(x, self.linear1.weight.clone(), self.linear1.bias).squeeze(2)
+        output = nn.functional.linear(output, self.linear2.weight.clone(), self.linear2.bias)
         return output

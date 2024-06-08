@@ -18,6 +18,6 @@ class GCN(nn.Module):
 
     def forward(self, x, edge_index):
         for conv in self.convs[:-1]:
-            x = F.relu(conv(x, edge_index))
+            x = F.relu(conv(x, edge_index), inplace=False)
         x = self.convs[-1](x, edge_index)  # No ReLU on the last layer
         return x
