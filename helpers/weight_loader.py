@@ -40,7 +40,7 @@ def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
 
 def save_model_weights(model, filename):
     filepath = os.path.join(weights_dir, filename)
-    torch..save(model.state_dict(), filepath)
+    torch.save(model.state_dict(), filepath)
 
 def save_all_weights(adj_generators, gcn_models, v_networks, final_layer):
     for i, adj_generator in enumerate(adj_generators):
