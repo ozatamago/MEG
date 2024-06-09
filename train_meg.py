@@ -19,7 +19,8 @@ from models.final_layer import FinalLayer
 from helpers.data_loader import accuracy
 from helpers.v import VNetwork
 from helpers.sampling import sample_nodes
-from helpers.weight_loader import load_all_weights, save_all_weights
+from helpers.weight_loader import load_all_weights
+from helpers.weight_saver import save_all_weights
 from helpers.positional_encoding import positional_encoding
 from helpers.config_loader import load_config
 from helpers.visualize import visualize_tensor
@@ -70,6 +71,7 @@ def train(rank, world_size):
         num_neighbors=num_neighbors,
         batch_size=35,
         input_nodes=data.train_mask,
+        shuffle=True,
     )
 
     # Extract adjacency matrix, features, and labels
@@ -110,7 +112,7 @@ def train(rank, world_size):
     adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, d_ff, num_layers, hidden_size, device, dropout).to(device) for _ in range(num_model_layers)]
     gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
     final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
-    v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 498, dropout).to(device) for _ in range(num_model_layers)]
+    v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
 
     # To paralleliize for GPUs
     adj_generators = [DDP(adj_gen, device_ids=[rank], broadcast_buffers=False) for adj_gen in adj_generators]
@@ -161,6 +163,7 @@ def train(rank, world_size):
             adj_clone = new_adj.clone().detach()
 
             print(f"Batch size: {batch.batch_size}")  # バッチサイズ（シードノード数）
+            print(f"Node IDs: {batch.n_id}")  # 元のグラフにおけるノードIDのShape
             print(f"Node IDs shape: {batch.n_id.shape}")  # 元のグラフにおけるノードIDのShape
             print(f"Edge index shape: {batch.edge_index.shape}")  # サブグラフのエッジインデックスのShape
 
@@ -168,15 +171,16 @@ def train(rank, world_size):
                 print(f"\nLayer {layer + 1}/{num_model_layers}")
 
                 # ノードをサンプリング
-                sampled_indices = sample_nodes(updated_features, num_of_samples=498)
+                sampled_indices = sample_nodes(updated_features, num_of_samples=140)
                 sampled_indices_set = set(sampled_indices.tolist())  # サンプリングされたノードのセット
                 
                 # For each node, generate new neighbors using Bernoulli distribution
                 layer_log_probs = []
                 for node_idx in range(batch.num_nodes):
-                    node_feature = updated_features[node_idx].unsqueeze(0)
-                    neighbor_indices = adj_clone[node_idx].nonzero().view(-1)
-                    neighbor_features = updated_features[neighbor_indices]
+                    # print(node_idx)
+                    node_feature = updated_features[node_idx].unsqueeze(0).detach()
+                    neighbor_indices = adj_clone[node_idx].nonzero().view(-1).detach()
+                    neighbor_features = updated_features[neighbor_indices].detach()
 
                 # with sdpa_kernel(SDPBackend.MATH):  # adj_generatorにmathバックエンドを適用
                     adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
@@ -187,13 +191,20 @@ def train(rank, world_size):
 
                     # Use the generated new neighbors to update the new adjacency matrix
                     for i, neighbor_idx in enumerate(neighbor_indices):
-                        new_adj[node_idx, neighbor_idx] = new_neighbors[0, i, 0].item()
+                        print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
+                        print(f"new_neighbors: {new_neighbors}")
+                        new_adj[node_idx, neighbor_idx] = new_neighbors[i].item()
 
-                print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
-                print(f"new_neighbors: {new_neighbors}")
+                    del adj_logits, new_neighbors, log_probs
+                    torch.cuda.empty_cache()
 
-                log_probs_layers.append(sum(layer_log_probs) / len(layer_log_probs))
-                
+                # print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
+                # print(f"new_neighbors: {new_neighbors}")
+                # print(f"layer_log_probs: {layer_log_probs}")
+
+                log_probs_layers.append(sum(layer_log_probs))
+                print(f"log_probs_layers: {log_probs_layers}")
+
                 # Sampled nodes for computing gradient and state value function V
                 sampled_features = updated_features[sampled_indices].detach()
                 print(f"Sampled features for layer {layer + 1}: {sampled_features.shape}")
@@ -252,9 +263,10 @@ def train(rank, world_size):
 
             # Update GCN
             for opt_gcn in optimizer_gcn:
-                opt_gcn.zero_grad()
+                opt_gcn.zero_grad()                
             loss_gcn = F.nll_loss(output, batch.y[:batch.batch_size])
             print(f"GCN loss: {loss_gcn.item()}")
+            # visualize_tensor(loss_gcn, f"gcn_loss_graph")
             loss_gcn.backward()
             for opt_gcn in optimizer_gcn:
                 opt_gcn.step()
@@ -267,6 +279,7 @@ def train(rank, world_size):
             count = 0
             # 各層の勾配計算とアドバンテージの適用
             for opt_adj, adj_generator in zip(optimizer_adj, adj_generators):
+                print(count)
                 # 各 optimizer_adj に対してゼロリセット
                 opt_adj.zero_grad()
 
@@ -298,7 +311,7 @@ def train(rank, world_size):
         # Synchronize CUDA and wait for 2 seconds to ensure all operations are complete
         torch.cuda.synchronize()
         print(f"\nEpoch {epoch + 1}/{epochs}")
-        print(f"Epoch accuracy: {epoch_acc * 100:.2f}%")  # Print average accuracy across all batches
+        print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")  # Print average accuracy across all batches
         print(f"Epoch time: {epoch_time}")
         # Write the results to the log file
         if rank == 0:
@@ -315,7 +328,6 @@ def train(rank, world_size):
 
     # Test phase
     print("Starting testing phase...")
-
     for adj_generator in adj_generators:
         adj_generator.eval()
     final_layer.eval()
@@ -351,7 +363,7 @@ def train(rank, world_size):
         output = F.log_softmax(output, dim=1)
         test_acc = accuracy(output, labels[idx_test])
         print(f"Test accuracy: {test_acc * 100:.2f}%")
-        
+
         if rank == 0:
             with open(log_file_path, 'a') as f:
                 f.write(f"\nTest accuracy: {test_acc * 100:.2f}%\n")
