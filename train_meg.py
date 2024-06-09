@@ -190,7 +190,7 @@ def train(rank, world_size):
 
                     # Use the generated new neighbors to update the new adjacency matrix
                     for i, neighbor_idx in enumerate(neighbor_indices):
-                        print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
+                        # print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
                         # print(f"new_neighbors: {new_neighbors}")
                         new_adj[node_idx, neighbor_idx] = new_neighbors[i].item()
 
