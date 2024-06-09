@@ -7,7 +7,7 @@ model:
   num_classes: 7
   hidden_size: 64
   d_model: 1433
-  num_heads: 1
+  num_heads: 8
   d_ff: 256
   num_layers: 4
   dropout: 0.1
@@ -29,5 +29,5 @@ device: auto
 optimizer:
   lr_gcn: 0.001
   lr_v: 0.001
-  lr_adj: 0.001
+  lr_adj: 0.0003
   lr_final_layer: 0.001
