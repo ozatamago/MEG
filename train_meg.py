@@ -262,7 +262,8 @@ def train(rank, world_size):
 
             # Update GCN
             for opt_gcn in optimizer_gcn:
-                opt_gcn.zero_grad()                
+                opt_gcn.zero_grad()     
+            optimizer_final_layer.zero_grad()
             loss_gcn = F.nll_loss(output, batch.y[:batch.batch_size])
             print(f"GCN loss: {loss_gcn.item()}")
             # visualize_tensor(loss_gcn, f"gcn_loss_graph")
@@ -272,7 +273,6 @@ def train(rank, world_size):
 
             print("init final_layer")
             # After all gradients are computed, step the optimizers
-            optimizer_final_layer.zero_grad()
             optimizer_final_layer.step()
 
             count = 0
