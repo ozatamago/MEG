@@ -194,7 +194,7 @@ def train(rank, world_size):
                         print(f"new_neighbors: {new_neighbors}")
                         new_adj[node_idx, neighbor_idx] = new_neighbors[i].item()
 
-                    del adj_logits, new_neighbors, log_probs
+                    del adj_logits, new_neighbors
                     torch.cuda.empty_cache()
 
                 # print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
