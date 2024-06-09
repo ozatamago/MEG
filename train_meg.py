@@ -268,13 +268,13 @@ def train(rank, world_size):
             print(f"GCN loss: {loss_gcn.item()}")
             # visualize_tensor(loss_gcn, f"gcn_loss_graph")
             loss_gcn.backward()
+            optimizer_final_layer.step()
             for opt_gcn in optimizer_gcn:
                 opt_gcn.step()
 
             print("init final_layer")
             # After all gradients are computed, step the optimizers
-            optimizer_final_layer.step()
-
+            
             count = 0
             # 各層の勾配計算とアドバンテージの適用
             for opt_adj, adj_generator in zip(optimizer_adj, adj_generators):
