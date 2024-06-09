@@ -288,6 +288,8 @@ def train(rank, world_size):
                 
                 log_probs_with_adv.backward(retain_graph=True)
 
+                torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
+
                 opt_adj.step()  # 各 optimizer_adj に対してステップ
 
                 count = count + 1
@@ -300,6 +302,7 @@ def train(rank, world_size):
                 # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
                 print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
                 v_loss.backward()
+                torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
                 v_opt.step()
 
         save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
