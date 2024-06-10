@@ -267,6 +267,9 @@ def train(rank, world_size):
             print(f"GCN loss: {loss_gcn.item()}")
             # visualize_tensor(loss_gcn, f"gcn_loss_graph")
             loss_gcn.backward()
+            for name, param in final_layer.named_parameters():
+            if param.grad is not None:
+                print(f"Grad for {name}: {param.grad}")
             for opt_gcn in optimizer_gcn:
                 torch.nn.utils.clip_grad_norm_(gcn_model.parameters(), max_norm=0.1)
                 opt_gcn.step()
