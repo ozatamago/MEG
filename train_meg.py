@@ -194,7 +194,7 @@ def train(rank, world_size):
                         # print(f"new_neighbors: {new_neighbors}")
                         new_adj[node_idx, neighbor_idx] = new_neighbors[i].item()
 
-                    del adj_logits, new_neighbors
+                    del adj_logits, new_neighbors, log_probs
                     torch.cuda.empty_cache()
 
                 log_probs_layers.append(sum(layer_log_probs))
