@@ -308,7 +308,7 @@ def train(rank, world_size):
         if rank == 0:
             with open(log_file_path, 'a') as f:
                 f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
-                f.write(f"Epoch accuracy: {epoch_acc * 100:.2f}%\n")
+                f.write(f"Epoch accuracy: {epoch_acc * 25:.2f}%\n")
                 f.write(f"Epoch time: {epoch_time:.2f} seconds\n")  # Write the epoch time to the log file
                 for i in range(num_model_layers):
                     f.write(f"Advantages for layer {i + 1}: {advantages_layers[i].item()}\n")
