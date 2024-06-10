@@ -5,7 +5,15 @@ from models.transformer import TransformerEncoder
 class AdjacencyGenerator(nn.Module):
     def __init__(self, d_model, num_heads, d_ff, num_layers, hidden_size, device, dropout=0.1):
         super(AdjacencyGenerator, self).__init__()
-        self.cross_attention = nn.MultiheadAttention(d_model, num_heads, dropout=dropout).to(device)
+        self.num_layers = num_layers
+        self.cross_attentions = nn.ModuleList([
+            nn.MultiheadAttention(d_model, num_heads, dropout=dropout).to(device) 
+            for _ in range(num_layers)
+        ])
+        self.norm_layers = nn.ModuleList([
+            nn.LayerNorm(d_model).to(device)
+            for _ in range(num_layers)
+        ])
         self.device = device
 
         self.weight_layer = nn.Linear(d_model, 2*d_model).to(device)
@@ -18,7 +26,10 @@ class AdjacencyGenerator(nn.Module):
         key = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
         value = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
 
-        attn_output, attn_output_weights = self.cross_attention(query, key, value)  # クロスアテンションを適用
+        for i in range(self.num_layers):
+            attn_output, attn_output_weights = self.cross_attentions[i](query, key, value)
+            query = query + attn_output  # Add
+            query = self.norm_layers[i](query)  # Norm
 
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
         
