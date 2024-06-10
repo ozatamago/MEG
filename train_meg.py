@@ -197,10 +197,6 @@ def train(rank, world_size):
                     del adj_logits, new_neighbors
                     torch.cuda.empty_cache()
 
-                # print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
-                # print(f"new_neighbors: {new_neighbors}")
-                # print(f"layer_log_probs: {layer_log_probs}")
-
                 log_probs_layers.append(sum(layer_log_probs))
                 print(f"log_probs_layers: {log_probs_layers}")
 
@@ -219,8 +215,6 @@ def train(rank, world_size):
                 node_features = gcn_models[layer].module(updated_features, edge_index)
 
                 updated_features = node_features.clone()
-
-                print(f"edge_index.shape: {edge_index.shape}")
 
                 # Calculate reward
                 sum_new_neighbors = new_adj.sum().item()  # 合計を計算
