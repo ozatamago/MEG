@@ -234,11 +234,10 @@ def train(rank, world_size):
                 print(f"Reward for layer {layer + 1}: {reward}")
 
             output = final_layer.module(updated_features[:batch.batch_size])
-            output_for_adj = final_layer.module(updated_features[:batch.batch_size])
             output = F.log_softmax(output, dim=1)
             print(f'output.shape: {output.shape}')
             
-            acc = accuracy(output_for_adj, batch.y[:batch.batch_size])
+            acc = accuracy(output, batch.y[:batch.batch_size])
             print(f"Training accuracy: {acc * 100:.2f}%")  # Print accuracy
             epoch_acc += acc
             # Calculate cumulative rewards for each layer
