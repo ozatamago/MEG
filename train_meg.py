@@ -293,7 +293,7 @@ def train(rank, world_size):
             for i, (v_network, v_opt) in enumerate(zip(v_networks, optimizer_v)):
                 # print(f"i: {i}")
                 v_opt.zero_grad()
-                v_loss = F.mse_loss(value_functions[i], cumulative_rewards[i])
+                v_loss = F.mse_loss(value_functions[i], cumulative_rewards[i].unsqueeze(0))
                 # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
                 # print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
                 v_loss.backward()
