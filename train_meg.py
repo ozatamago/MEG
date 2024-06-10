@@ -294,6 +294,9 @@ def train(rank, world_size):
                 torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
                 v_opt.step()
 
+            del updated_features, new_adj, adj_clone, log_probs_layers, value_functions, batch, output, acc, cumulative_rewards, advantages_layers, value_function, node_features, edge_index, edge_weight
+            torch.cuda.empty_cache()
+
         save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
         end_time = time.time()
