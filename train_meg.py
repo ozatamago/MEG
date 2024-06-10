@@ -274,8 +274,7 @@ def train(rank, world_size):
             # After all gradients are computed, step the optimizers
 
             for i in range(4):
-                device = torch.device(f'cuda:{i}')  # 例として、GPU 0 を使用
-                print_memory_usage(device)
+                print_memory_usage(torch.device(f'cuda:{i}'))
 
             count = 0
             # 各層の勾配計算とアドバンテージの適用
