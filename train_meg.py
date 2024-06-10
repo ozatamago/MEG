@@ -276,17 +276,11 @@ def train(rank, world_size):
                 # print(count)
                 # 各 optimizer_adj に対してゼロリセット
                 opt_adj.zero_grad()
-
                 log_probs_with_adv = log_probs_layers[count] * advantages_layers[count]
-
                 # visualize_tensor(log_probs_with_adv, f"log_probs_with_adv_graph_{count}")
-                
                 log_probs_with_adv.backward(retain_graph=True)
-
                 torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
-
                 opt_adj.step()  # 各 optimizer_adj に対してステップ
-
                 count = count + 1
 
             # Update V-networks
@@ -295,7 +289,7 @@ def train(rank, world_size):
                 v_opt.zero_grad()
                 v_loss = F.mse_loss(value_functions[i], cumulative_rewards[i])
                 # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
-                print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
+                # print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
                 v_loss.backward()
                 torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
                 v_opt.step()
