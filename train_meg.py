@@ -273,7 +273,7 @@ def train(rank, world_size):
             count = 0
             # 各層の勾配計算とアドバンテージの適用
             for opt_adj, adj_generator in zip(optimizer_adj, adj_generators):
-                print(count)
+                # print(count)
                 # 各 optimizer_adj に対してゼロリセット
                 opt_adj.zero_grad()
 
