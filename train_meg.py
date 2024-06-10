@@ -30,6 +30,10 @@ config = load_config()
 # Enable anomaly detection
 torch.autograd.set_detect_anomaly(True)
 
+def print_memory_usage(device):
+    print(f"Memory Allocated: {torch.cuda.memory_allocated(device) / (1024 * 1024):.2f} MB")
+    print(f"Memory Cached: {torch.cuda.memory_reserved(device) / (1024 * 1024):.2f} MB")
+
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
@@ -194,7 +198,7 @@ def train(rank, world_size):
                         # print(f"new_neighbors: {new_neighbors}")
                         new_adj[node_idx, neighbor_idx] = new_neighbors[i].item()
 
-                    del adj_logits, new_neighbors, log_probs
+                    del adj_logits, new_neighbors
                     torch.cuda.empty_cache()
 
                 log_probs_layers.append(sum(layer_log_probs))
@@ -219,7 +223,7 @@ def train(rank, world_size):
                 # Calculate reward
                 sum_new_neighbors = new_adj.sum().item()  # 合計を計算
                 print(f"sum_new_neighbors: {sum_new_neighbors}")
-                log_sum = 1.0/torch.exp(torch.tensor(sum_new_neighbors /6000.0, device=device))  # sum_new_neighborsをtensorに変換
+                log_sum = 1.0/torch.exp(torch.tensor(sum_new_neighbors /4000.0, device=device))  # sum_new_neighborsをtensorに変換
                 reward = log_sum.item()
 
                 rewards_for_adj.append(reward)
@@ -239,7 +243,6 @@ def train(rank, world_size):
             for l in range(num_model_layers):
                 cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
                 cumulative_rewards.append(cumulative_reward)
-
 
             print(f"Cumulative rewards: {cumulative_rewards}")
 
@@ -269,7 +272,11 @@ def train(rank, world_size):
 
             print("init final_layer")
             # After all gradients are computed, step the optimizers
-            
+
+            for i in range(4):
+                device = torch.device(f'cuda:{i}')  # 例として、GPU 0 を使用
+                print_memory_usage(device)
+
             count = 0
             # 各層の勾配計算とアドバンテージの適用
             for opt_adj, adj_generator in zip(optimizer_adj, adj_generators):
@@ -293,6 +300,8 @@ def train(rank, world_size):
                 v_loss.backward()
                 torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
                 v_opt.step()
+
+            print("gradient computation is finished!")
 
             del updated_features, new_adj, adj_clone, log_probs_layers, value_functions, batch, output, acc, cumulative_rewards, advantages_layers, value_function, node_features, edge_index, edge_weight
             torch.cuda.empty_cache()
