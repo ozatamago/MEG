@@ -267,7 +267,7 @@ def train(rank, world_size):
             print(f"GCN loss: {loss_gcn.item()}")
             # visualize_tensor(loss_gcn, f"gcn_loss_graph")
             loss_gcn.backward()
-            for name, param in final_layer.named_parameters():
+            for name, param in gcn_models[0].named_parameters():
                 if param.grad is not None:
                     print(f"Grad for {name}: {param.grad}")
             for opt_gcn in optimizer_gcn:
