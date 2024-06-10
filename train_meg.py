@@ -302,8 +302,8 @@ def train(rank, world_size):
 
             print("gradient computation is finished!")
 
-            del updated_features, new_adj, adj_clone, log_probs_layers, value_functions, batch, output, acc, cumulative_rewards, advantages_layers, value_function, node_features, edge_index, edge_weight
-            torch.cuda.empty_cache()
+            # del updated_features, new_adj, adj_clone, log_probs_layers, value_functions, batch, output, acc, cumulative_rewards, advantages_layers, value_function, node_features, edge_index, edge_weight
+            # torch.cuda.empty_cache()
 
         save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
