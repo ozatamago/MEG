@@ -267,9 +267,11 @@ def train(rank, world_size):
             print(f"GCN loss: {loss_gcn.item()}")
             # visualize_tensor(loss_gcn, f"gcn_loss_graph")
             loss_gcn.backward()
-            optimizer_final_layer.step()
             for opt_gcn in optimizer_gcn:
+                torch.nn.utils.clip_grad_norm_(gcn_model.parameters(), max_norm=0.1)
                 opt_gcn.step()
+            torch.nn.utils.clip_grad_norm_(final_layer.parameters(), max_norm=0.1)
+            optimizer_final_layer.step()
 
             print("init final_layer")
             # After all gradients are computed, step the optimizers
