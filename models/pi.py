@@ -28,9 +28,9 @@ class AdjacencyGenerator(nn.Module):
 
         for i in range(self.num_layers):
             attn_output, attn_output_weights = self.cross_attentions[i](query, key, value)
+            attn_output = nn.functional.relu(attn_output)  # Apply ReLU activation
             query = query + attn_output  # Add
             query = self.norm_layers[i](query)  # Norm
-            query = nn.functional.relu(query)  # Apply ReLU activation
 
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
         
