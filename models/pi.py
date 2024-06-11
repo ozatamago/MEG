@@ -39,14 +39,15 @@ class AdjacencyGenerator(nn.Module):
 
     def forward(self, node_features, neighbor_features):
         # Queryはnode_features、KeyとValueはneighbor_features
-        query = neighbor_features.unsqueeze(1)  # (num_neighbors, 1, d_model)
+        original_query = neighbor_features.unsqueeze(1)  # (num_neighbors, 1, d_model)
+        query = original_query
         key = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
         value = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
 
         for i in range(self.num_layers):
             attn_output, attn_output_weights = self.cross_attentions[i](query, key, value)
             attn_output = nn.functional.relu(attn_output)  # Apply ReLU activation
-            query = query + attn_output  # Add
+            query = original_query + attn_output  # Skip connection with original query
             query = self.norm_layers[i](query)  # Norm
 
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
