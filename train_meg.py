@@ -139,6 +139,7 @@ def train(rank, world_size):
 
     # Training loop
     for epoch in range(epochs):
+        dist.barrier()  # 各エポックの開始時に同期
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
 
