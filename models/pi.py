@@ -20,6 +20,23 @@ class AdjacencyGenerator(nn.Module):
         self.weight_layer2 = nn.Linear(2*d_model, 2*d_model).to(device)
         self.weight_vector = nn.Linear(2*d_model, 1).to(device)
 
+     # Initialize weights
+        self._init_weights()
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.MultiheadAttention):
+                nn.init.xavier_uniform_(m.in_proj_weight)
+                if m.in_proj_bias is not None:
+                    nn.init.zeros_(m.in_proj_bias)
+                nn.init.xavier_uniform_(m.out_proj.weight)
+                if m.out_proj.bias is not None:
+                    nn.init.zeros_(m.out_proj.bias)
+
     def forward(self, node_features, neighbor_features):
         # Queryはnode_features、KeyとValueはneighbor_features
         query = neighbor_features.unsqueeze(1)  # (num_neighbors, 1, d_model)
