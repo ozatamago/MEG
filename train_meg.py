@@ -136,6 +136,12 @@ def train(rank, world_size):
     if rank == 0:
         with open(log_file_path, 'w') as f:
             f.write("Training Log\n")
+    best_model_wts = {
+        "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
+        "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
+        "final_layer": copy.deepcopy(final_layer.state_dict())
+    }
+    best_acc = 0.0
 
     # Training loop
     for epoch in range(epochs):
@@ -303,9 +309,6 @@ def train(rank, world_size):
 
             print("gradient computation is finished!")
 
-            # del updated_features, new_adj, adj_clone, log_probs_layers, value_functions, batch, output, acc, cumulative_rewards, advantages_layers, value_function, node_features, edge_index, edge_weight
-            # torch.cuda.empty_cache()
-
         save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
         end_time = time.time()
@@ -313,20 +316,31 @@ def train(rank, world_size):
 
         # Synchronize CUDA and wait for 2 seconds to ensure all operations are complete
         torch.cuda.synchronize()
-        print(f"\nEpoch {epoch + 1}/{epochs}")
-        print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")  # Print average accuracy across all batches
-        print(f"Epoch time: {epoch_time}")
-        # Write the results to the log file
+        dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
+        epoch_acc /= world_size
+    
         if rank == 0:
+            epoch_acc = epoch_acc.item()
+            print(f"\nEpoch {epoch + 1}/{epochs}")
+            print(f"Epoch accuracy: {epoch_acc * 100:.2f}%")
+            print(f"Epoch time: {epoch_time}")
+    
+            if epoch_acc > best_acc:
+                best_acc = epoch_acc
+                best_model_wts = {
+                    "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
+                    "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
+                    "final_layer": copy.deepcopy(final_layer.state_dict())
+                }
+    
             with open(log_file_path, 'a') as f:
                 f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
-                f.write(f"Epoch accuracy: {epoch_acc * 25:.2f}%\n")
-                f.write(f"Epoch time: {epoch_time:.2f} seconds\n")  # Write the epoch time to the log file
+                f.write(f"Epoch accuracy: {epoch_acc * 100:.2f}%\n")
+                f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
                 for i in range(num_model_layers):
                     f.write(f"Advantages for layer {i + 1}: {advantages_layers[i].item()}\n")
-
-        time.sleep(2)
-
+    
+    
     print("Training finished and model weights saved!")
 
     # Test phase
