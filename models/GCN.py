@@ -4,28 +4,18 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 
 class GCN(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, out_channels):
         super(GCN, self).__init__()
 
-        self.convs = nn.ModuleList()
-        self.relus = nn.ModuleList()
-
-        self.convs.append(GCNConv(in_channels, hidden_channels))
-        self.relus.append(nn.ReLU(inplace=False))
-
-        for _ in range(num_layers - 2):
-            self.convs.append(GCNConv(hidden_channels, hidden_channels))
-            self.relus.append(nn.ReLU(inplace=False))
-
-        self.convs.append(GCNConv(hidden_channels, out_channels))
+        # Define a single GCN layer followed by ReLU
+        self.conv = GCNConv(in_channels, out_channels)
+        self.relu = nn.ReLU(inplace=False)
 
     def forward(self, x, edge_index):
-        for conv, relu in zip(self.convs[:-1], self.relus):
-            x = conv(x, edge_index)
-            x = relu(x)
-        x = self.convs[-1](x, edge_index)  # No ReLU on the last layer
+        x = self.conv(x, edge_index)
+        x = self.relu(x)  # Apply ReLU activation
         return x
 
 # Example usage:
-# model = GCN(in_channels=16, hidden_channels=32, out_channels=2, num_layers=4)
+# model = GCN(in_channels=16, out_channels=32)
 # out = model(data.x, data.edge_index)
