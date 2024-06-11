@@ -306,7 +306,7 @@ def train(rank, world_size):
                 log_probs_with_adv = log_probs_layers[count] * advantages_layers[count]
                 # visualize_tensor(log_probs_with_adv, f"log_probs_with_adv_graph_{count}")
                 log_probs_with_adv.backward(retain_graph=True)
-                torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
+                # torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
                 opt_adj.step()  # 各 optimizer_adj に対してステップ
                 count = count + 1
 
@@ -369,17 +369,17 @@ def train(rank, world_size):
                 for i in range(num_model_layers):
                     f.write(f"Advantages for layer {i + 1}: {advantages_layers[i].item()}\n")
 
-    # 各エポックの後に各プロセスのパラメータをファイルに保存
-    with open(f'logs/model_weights_after_epoch_{epoch}_rank_{rank}.txt', 'w') as f:
-        f.write(f"Model weights after epoch {epoch} on rank {rank}:\n")
-        for name, param in final_layer.named_parameters():
-            f.write(f"{name}: {param.data}\n")
-        for gcn_model in gcn_models:
-            for name, param in gcn_model.named_parameters():
+        # 各エポックの後に各プロセスのパラメータをファイルに保存
+        with open(f'logs/model_weights_after_epoch_{epoch}_rank_{rank}.txt', 'w') as f:
+            f.write(f"Model weights after epoch {epoch} on rank {rank}:\n")
+            for name, param in final_layer.named_parameters():
                 f.write(f"{name}: {param.data}\n")
-        for adj_generator in adj_generators:
-            for name, param in adj_generator.named_parameters():
-                f.write(f"{name}: {param.data}\n")
+            for gcn_model in gcn_models:
+                for name, param in gcn_model.named_parameters():
+                    f.write(f"{name}: {param.data}\n")
+            for adj_generator in adj_generators:
+                for name, param in adj_generator.named_parameters():
+                    f.write(f"{name}: {param.data}\n")
     
     print("Training finished and model weights saved!")
 
