@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 
 class GCN(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
         super(GCN, self).__init__()
 
         # Define a single GCN layer followed by ReLU
