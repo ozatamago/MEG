@@ -247,7 +247,7 @@ def train(rank, world_size):
                 # Calculate reward
                 sum_new_neighbors = new_adj.sum().item()  # 合計を計算
                 print(f"sum_new_neighbors: {sum_new_neighbors}")
-                log_sum = 1.0/torch.exp(torch.tensor(sum_new_neighbors /4000.0, device=device))  # sum_new_neighborsをtensorに変換
+                log_sum = 1.0/torch.exp(torch.tensor(sum_new_neighbors /2000.0, device=device))  # sum_new_neighborsをtensorに変換
                 reward = log_sum.item()
 
                 rewards_for_adj.append(reward)
