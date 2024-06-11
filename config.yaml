@@ -9,7 +9,7 @@ model:
   d_model: 1433
   num_heads: 8
   d_ff: 256
-  num_layers: 2
+  num_layers: 4
   dropout: 0.1
   num_gcn_layers: 10
 
