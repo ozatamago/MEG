@@ -311,19 +311,6 @@ def train(rank, world_size):
                 opt_adj.step()  # 各 optimizer_adj に対してステップ
                 count = count + 1
 
-            # Update V-networks
-            for i, (v_network, v_opt) in enumerate(zip(v_networks, optimizer_v)):
-                # print(f"i: {i}")
-                v_opt.zero_grad()
-                v_loss = F.mse_loss(value_functions[i], cumulative_rewards[i].unsqueeze(0))
-                # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
-                # print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
-                v_loss.backward()
-                torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
-                v_opt.step()
-
-            print("gradient computation is finished!")
-
             # バックプロパゲーションの後に、各プロセスの勾配をファイルに保存
             with open(f'logs/gradients_after_backward_rank_{rank}.txt', 'w') as f:
                 f.write(f"Gradients after backward on rank {rank}:\n")
@@ -338,6 +325,19 @@ def train(rank, world_size):
                     for name, param in adj_generator.named_parameters():
                         if param.grad is not None:
                             f.write(f"{name}: {param.grad.data}\n")
+
+            # Update V-networks
+            for i, (v_network, v_opt) in enumerate(zip(v_networks, optimizer_v)):
+                # print(f"i: {i}")
+                v_opt.zero_grad()
+                v_loss = F.mse_loss(value_functions[i], cumulative_rewards[i].unsqueeze(0))
+                # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
+                # print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
+                v_loss.backward()
+                torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
+                v_opt.step()
+
+            print("gradient computation is finished!")
 
         save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
