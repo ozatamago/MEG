@@ -12,6 +12,7 @@ from torch_geometric.loader import NeighborLoader
 import torch_geometric.transforms as T
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
+import copy
 
 from models.pi import AdjacencyGenerator
 from models.GCN import GCN
