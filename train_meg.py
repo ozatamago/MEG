@@ -12,11 +12,10 @@ from torch_geometric.loader import NeighborLoader
 import torch_geometric.transforms as T
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
-import copy
 
 from models.pi import AdjacencyGenerator
-from models.GCN import GCN, FinalLayer
-# from models.final_layer import FinalLayer
+from models.GCN import GCN
+from models.final_layer import FinalLayer
 from helpers.data_loader import accuracy
 from helpers.v import VNetwork
 from helpers.sampling import sample_nodes
@@ -30,10 +29,6 @@ config = load_config()
 
 # Enable anomaly detection
 torch.autograd.set_detect_anomaly(True)
-
-def print_memory_usage(device):
-    print(f"Memory Allocated: {torch.cuda.memory_allocated(device) / (1024 * 1024):.2f} MB")
-    print(f"Memory Cached: {torch.cuda.memory_reserved(device) / (1024 * 1024):.2f} MB")
 
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
@@ -62,10 +57,6 @@ def train(rank, world_size):
     gamma = config['training']['gamma']
     pos_enc_dim = config['positional_encoding']['pos_enc_dim']
     device = rank
-    nfeat = d_model + pos_enc_dim  # 入力特徴量の次元数
-    nhid = hidden_size             # 隠れ層の次元数
-    nclass = num_classes           # 出力クラスの数
-    dropout = 0.5      
 
     # Load Cora dataset
     dataset = Planetoid(root='data/Cora', name='Cora')
@@ -86,9 +77,6 @@ def train(rank, world_size):
     adj = torch.zeros((num_nodes, num_nodes))
     adj[data.edge_index[0], data.edge_index[1]] = 1
     features = data.x
-    print(f"features: {features}")
-    print(f"features.sum(): {features.sum()}")    
-    print(f"features.shape: {features.shape}")    
     labels = data.y
     idx_train = data.train_mask
     idx_val = data.val_mask
@@ -120,9 +108,9 @@ def train(rank, world_size):
     adj = adj.to(device)  # adjもデバイスに移動
 
     # Initialize components
-    adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, d_ff, 1, hidden_size, device, dropout).to(device) for _ in range(num_model_layers)]
-    gcn_models = [GCN(nfeat, nhid, nclass, dropout).to(device) for _ in range(num_model_layers)]
-    final_layer = FinalLayer(nfeat, nclass).to(device)
+    adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, d_ff, num_layers, hidden_size, device, dropout).to(device) for _ in range(num_model_layers)]
+    gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
+    final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
     v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
 
     # To paralleliize for GPUs
@@ -144,29 +132,9 @@ def train(rank, world_size):
     if rank == 0:
         with open(log_file_path, 'w') as f:
             f.write("Training Log\n")
-            
-    best_model_wts = {
-        "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
-        "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
-        "final_layer": copy.deepcopy(final_layer.state_dict())
-    }
-    
-    # モデルの初期状態をファイルに保存
-    with open(f'logs/initial_weights_rank_{rank}.txt', 'w') as f:
-        f.write(f"Initial model weights on rank {rank}:\n")
-        for name, param in final_layer.named_parameters():
-            f.write(f"{name}: {param.data}\n")
-        for gcn_model in gcn_models:
-            for name, param in gcn_model.named_parameters():
-                f.write(f"{name}: {param.data}\n")
-        for adj_generator in adj_generators:
-            for name, param in adj_generator.named_parameters():
-                f.write(f"{name}: {param.data}\n")
-    best_acc = 0.0
 
     # Training loop
     for epoch in range(epochs):
-        dist.barrier()  # 各エポックの開始時に同期
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
 
@@ -229,6 +197,10 @@ def train(rank, world_size):
                     del adj_logits, new_neighbors
                     torch.cuda.empty_cache()
 
+                # print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
+                # print(f"new_neighbors: {new_neighbors}")
+                # print(f"layer_log_probs: {layer_log_probs}")
+
                 log_probs_layers.append(sum(layer_log_probs))
                 print(f"log_probs_layers: {log_probs_layers}")
 
@@ -248,10 +220,12 @@ def train(rank, world_size):
 
                 updated_features = node_features.clone()
 
+                print(f"edge_index.shape: {edge_index.shape}")
+
                 # Calculate reward
                 sum_new_neighbors = new_adj.sum().item()  # 合計を計算
                 print(f"sum_new_neighbors: {sum_new_neighbors}")
-                log_sum = 1.0/torch.exp(torch.tensor(sum_new_neighbors /2000.0, device=device))  # sum_new_neighborsをtensorに変換
+                log_sum = 1.0/torch.exp(torch.tensor(sum_new_neighbors /6000.0, device=device))  # sum_new_neighborsをtensorに変換
                 reward = log_sum.item()
 
                 rewards_for_adj.append(reward)
@@ -271,6 +245,7 @@ def train(rank, world_size):
             for l in range(num_model_layers):
                 cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
                 cumulative_rewards.append(cumulative_reward)
+
 
             print(f"Cumulative rewards: {cumulative_rewards}")
 
@@ -292,6 +267,9 @@ def train(rank, world_size):
             print(f"GCN loss: {loss_gcn.item()}")
             # visualize_tensor(loss_gcn, f"gcn_loss_graph")
             loss_gcn.backward()
+            for name, param in gcn_models[0].named_parameters():
+                if param.grad is not None:
+                    print(f"Grad for {name}: {param.grad}")
             for opt_gcn in optimizer_gcn:
                 torch.nn.utils.clip_grad_norm_(gcn_model.parameters(), max_norm=0.1)
                 opt_gcn.step()
@@ -300,51 +278,36 @@ def train(rank, world_size):
 
             print("init final_layer")
             # After all gradients are computed, step the optimizers
-
-            for i in range(4):
-                print_memory_usage(torch.device(f'cuda:{i}'))
-
+            
             count = 0
             # 各層の勾配計算とアドバンテージの適用
             for opt_adj, adj_generator in zip(optimizer_adj, adj_generators):
-                # print(count)
+                print(count)
                 # 各 optimizer_adj に対してゼロリセット
                 opt_adj.zero_grad()
-                log_probs_with_adv = log_probs_layers[count] * advantages_layers[count]
-                # visualize_tensor(log_probs_with_adv, f"log_probs_with_adv_graph_{count}")
-                print(f"log_probs_with_adv: {log_probs_with_adv}")
-                log_probs_with_adv.backward(retain_graph=True)
-                torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
-                opt_adj.step()  # 各 optimizer_adj に対してステップ
-                count = count + 1
 
-            # バックプロパゲーションの後に、各プロセスの勾配をファイルに保存
-            with open(f'logs/gradients_after_backward_rank_{rank}.txt', 'w') as f:
-                f.write(f"Gradients after backward on rank {rank}:\n")
-                for name, param in final_layer.named_parameters():
-                    if param.grad is not None:
-                        f.write(f"{name}: {param.grad.data}\n")
-                for gcn_model in gcn_models:
-                    for name, param in gcn_model.named_parameters():
-                        if param.grad is not None:
-                            f.write(f"{name}: {param.grad.data}\n")
-                for adj_generator in adj_generators:
-                    for name, param in adj_generator.named_parameters():
-                        if param.grad is not None:
-                            f.write(f"{name}: {param.grad.data}\n")
+                log_probs_with_adv = log_probs_layers[count] * advantages_layers[count]
+
+                # visualize_tensor(log_probs_with_adv, f"log_probs_with_adv_graph_{count}")
+                
+                log_probs_with_adv.backward(retain_graph=True)
+
+                torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
+
+                opt_adj.step()  # 各 optimizer_adj に対してステップ
+
+                count = count + 1
 
             # Update V-networks
             for i, (v_network, v_opt) in enumerate(zip(v_networks, optimizer_v)):
                 # print(f"i: {i}")
                 v_opt.zero_grad()
-                v_loss = F.mse_loss(value_functions[i], cumulative_rewards[i].unsqueeze(0))
+                v_loss = F.mse_loss(value_functions[i], cumulative_rewards[i])
                 # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
-                # print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
+                print(f"V-network loss for layer {i + 1}: {v_loss.item()}")
                 v_loss.backward()
                 torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
                 v_opt.step()
-
-            print("gradient computation is finished!")
 
         save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
@@ -353,42 +316,20 @@ def train(rank, world_size):
 
         # Synchronize CUDA and wait for 2 seconds to ensure all operations are complete
         torch.cuda.synchronize()
-        dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
-        epoch_acc /= world_size
-    
+        print(f"\nEpoch {epoch + 1}/{epochs}")
+        print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")  # Print average accuracy across all batches
+        print(f"Epoch time: {epoch_time}")
+        # Write the results to the log file
         if rank == 0:
-            epoch_acc = epoch_acc.item()
-            print(f"\nEpoch {epoch + 1}/{epochs}")
-            print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")
-            print(f"Epoch time: {epoch_time}")
-    
-            if epoch_acc > best_acc:
-                best_acc = epoch_acc
-                best_model_wts = {
-                    "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
-                    "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
-                    "final_layer": copy.deepcopy(final_layer.state_dict())
-                }
-    
             with open(log_file_path, 'a') as f:
                 f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
-                f.write(f"Epoch accuracy: {epoch_acc * 25:.2f}%\n")
-                f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
+                f.write(f"Epoch accuracy: {epoch_acc * 100:.2f}%\n")
+                f.write(f"Epoch time: {epoch_time:.2f} seconds\n")  # Write the epoch time to the log file
                 for i in range(num_model_layers):
                     f.write(f"Advantages for layer {i + 1}: {advantages_layers[i].item()}\n")
 
-        # 各エポックの後に各プロセスのパラメータをファイルに保存
-        with open(f'logs/model_weights_after_epoch_{epoch}_rank_{rank}.txt', 'w') as f:
-            f.write(f"Model weights after epoch {epoch} on rank {rank}:\n")
-            for name, param in final_layer.named_parameters():
-                f.write(f"{name}: {param.data}\n")
-            for gcn_model in gcn_models:
-                for name, param in gcn_model.named_parameters():
-                    f.write(f"{name}: {param.data}\n")
-            for adj_generator in adj_generators:
-                for name, param in adj_generator.named_parameters():
-                    f.write(f"{name}: {param.data}\n")
-    
+        time.sleep(2)
+
     print("Training finished and model weights saved!")
 
     # Test phase
