@@ -20,7 +20,10 @@ class AdjacencyGenerator(nn.Module):
         self.weight_layer2 = nn.Linear(2*d_model, 2*d_model).to(device)
         self.weight_vector = nn.Linear(2*d_model, 1).to(device)
 
-     # Initialize weights
+        # Add&Norm for final logits
+        self.final_norm = nn.LayerNorm(2*d_model).to(device)
+
+        # Initialize weights
         self._init_weights()
 
     def _init_weights(self):
@@ -54,11 +57,15 @@ class AdjacencyGenerator(nn.Module):
         
         adj_logits = nn.functional.linear(adj_logits, self.weight_layer.weight.clone(), self.weight_layer.bias)
         adj_logits = nn.functional.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
+        
+        # Apply Add&Norm for final logits
+        adj_logits = adj_logits + query.squeeze(0)
+        adj_logits = self.final_norm(adj_logits)
+
         adj_logits = nn.functional.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
         adj_probs = torch.sigmoid(adj_logits / 5).to(self.device)  # Reduce to (num_neighbors + 1)
 
         return adj_probs, adj_logits
-
 
     def generate_new_neighbors(self, node_features, neighbor_features):
         adj_probs, adj_logits = self.forward(node_features, neighbor_features)
