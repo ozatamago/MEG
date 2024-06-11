@@ -15,8 +15,8 @@ import torch.multiprocessing as mp
 import copy
 
 from models.pi import AdjacencyGenerator
-from models.GCN import GCN
-from models.final_layer import FinalLayer
+from models.GCN import GCN, FinalLayer
+# from models.final_layer import FinalLayer
 from helpers.data_loader import accuracy
 from helpers.v import VNetwork
 from helpers.sampling import sample_nodes
@@ -62,6 +62,10 @@ def train(rank, world_size):
     gamma = config['training']['gamma']
     pos_enc_dim = config['positional_encoding']['pos_enc_dim']
     device = rank
+    nfeat = d_model + pos_enc_dim  # 入力特徴量の次元数
+    nhid = hidden_size             # 隠れ層の次元数
+    nclass = num_classes           # 出力クラスの数
+    dropout = 0.5      
 
     # Load Cora dataset
     dataset = Planetoid(root='data/Cora', name='Cora')
@@ -117,8 +121,8 @@ def train(rank, world_size):
 
     # Initialize components
     adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, d_ff, 1, hidden_size, device, dropout).to(device) for _ in range(num_model_layers)]
-    gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
-    final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
+    gcn_models = [GCN(nfeat, nhid, nclass, dropout).to(device) for _ in range(num_model_layers)]
+    final_layer = FinalLayer(nfeat, nclass).to(device)
     v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
 
     # To paralleliize for GPUs
