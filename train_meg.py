@@ -84,6 +84,7 @@ def train(rank, world_size):
     features = data.x
     print(f"features: {features}")
     print(f"features.sum(): {features.sum()}")    
+    print(f"features.shape(): {features.shape()}")    
     labels = data.y
     idx_train = data.train_mask
     idx_val = data.val_mask
