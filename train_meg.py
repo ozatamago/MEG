@@ -82,6 +82,7 @@ def train(rank, world_size):
     adj = torch.zeros((num_nodes, num_nodes))
     adj[data.edge_index[0], data.edge_index[1]] = 1
     features = data.x
+    print(f"features: {features}")
     labels = data.y
     idx_train = data.train_mask
     idx_val = data.val_mask
