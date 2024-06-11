@@ -1,4 +1,4 @@
-yimport torch
+import torch
 import torch.nn as nn
 from models.transformer import TransformerEncoder
 
