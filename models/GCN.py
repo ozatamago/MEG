@@ -6,7 +6,6 @@ from torch_geometric.nn import GCNConv
 class GCN(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
         super(GCN, self).__init__()
-        assert num_layers >= 2, "Number of layers must be at least 2"
 
         self.convs = nn.ModuleList()
         self.relus = nn.ModuleList()
