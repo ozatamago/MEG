@@ -323,7 +323,7 @@ def train(rank, world_size):
         if rank == 0:
             epoch_acc = epoch_acc.item()
             print(f"\nEpoch {epoch + 1}/{epochs}")
-            print(f"Epoch accuracy: {epoch_acc * 100:.2f}%")
+            print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")
             print(f"Epoch time: {epoch_time}")
     
             if epoch_acc > best_acc:
@@ -336,7 +336,7 @@ def train(rank, world_size):
     
             with open(log_file_path, 'a') as f:
                 f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
-                f.write(f"Epoch accuracy: {epoch_acc * 100:.2f}%\n")
+                f.write(f"Epoch accuracy: {epoch_acc * 25:.2f}%\n")
                 f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
                 for i in range(num_model_layers):
                     f.write(f"Advantages for layer {i + 1}: {advantages_layers[i].item()}\n")
