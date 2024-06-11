@@ -1,4 +1,4 @@
-import torch
+yimport torch
 import torch.nn as nn
 from models.transformer import TransformerEncoder
 
@@ -57,11 +57,11 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
         
         adj_logits = nn.functional.linear(adj_logits, self.weight_layer.weight.clone(), self.weight_layer.bias)
-        adj_logits = nn.functional.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
+        # adj_logits = nn.functional.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
         adj_logits = nn.functional.linear(adj_logits, self.weight_layer3.weight.clone(), self.weight_layer3.bias)
         
         # Apply Add&Norm for final logits
-        adj_logits = adj_logits + original_query
+        adj_logits = adj_logits + query
         adj_logits = self.final_norm(adj_logits)
 
         adj_logits = nn.functional.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
