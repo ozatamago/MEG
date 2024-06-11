@@ -25,7 +25,7 @@ class AdjacencyGenerator(nn.Module):
         self.final_norm = nn.LayerNorm(d_model).to(device)
 
         # Initialize weights
-        self._init_weights()
+        # self._init_weights()
 
     def _init_weights(self):
         for m in self.modules():
@@ -61,7 +61,7 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = nn.functional.linear(adj_logits, self.weight_layer3.weight.clone(), self.weight_layer3.bias)
         
         # Apply Add&Norm for final logits
-        adj_logits = adj_logits + original_query.squeeze(1)
+        adj_logits = adj_logits + original_query
         adj_logits = self.final_norm(adj_logits)
 
         adj_logits = nn.functional.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
