@@ -7,7 +7,7 @@ model:
   num_classes: 7
   hidden_size: 64
   d_model: 1433
-  num_heads: 2
+  num_heads: 8
   d_ff: 256
   num_layers: 2
   dropout: 0.1
