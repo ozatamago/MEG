@@ -137,11 +137,24 @@ def train(rank, world_size):
     if rank == 0:
         with open(log_file_path, 'w') as f:
             f.write("Training Log\n")
+            
     best_model_wts = {
         "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
         "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
         "final_layer": copy.deepcopy(final_layer.state_dict())
     }
+    
+    # モデルの初期状態をファイルに保存
+    with open(f'logs/initial_weights_rank_{rank}.txt', 'w') as f:
+        f.write(f"Initial model weights on rank {rank}:\n")
+        for name, param in final_layer.named_parameters():
+            f.write(f"{name}: {param.data}\n")
+        for gcn_model in gcn_models:
+            for name, param in gcn_model.named_parameters():
+                f.write(f"{name}: {param.data}\n")
+        for adj_generator in adj_generators:
+            for name, param in adj_generator.named_parameters():
+                f.write(f"{name}: {param.data}\n")
     best_acc = 0.0
 
     # Training loop
@@ -310,6 +323,21 @@ def train(rank, world_size):
 
             print("gradient computation is finished!")
 
+            # バックプロパゲーションの後に、各プロセスの勾配をファイルに保存
+            with open(f'logs/gradients_after_backward_rank_{rank}.txt', 'w') as f:
+                f.write(f"Gradients after backward on rank {rank}:\n")
+                for name, param in final_layer.named_parameters():
+                    if param.grad is not None:
+                        f.write(f"{name}: {param.grad.data}\n")
+                for gcn_model in gcn_models:
+                    for name, param in gcn_model.named_parameters():
+                        if param.grad is not None:
+                            f.write(f"{name}: {param.grad.data}\n")
+                for adj_generator in adj_generators:
+                    for name, param in adj_generator.named_parameters():
+                        if param.grad is not None:
+                            f.write(f"{name}: {param.grad.data}\n")
+
         save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
         end_time = time.time()
@@ -340,7 +368,18 @@ def train(rank, world_size):
                 f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
                 for i in range(num_model_layers):
                     f.write(f"Advantages for layer {i + 1}: {advantages_layers[i].item()}\n")
-    
+
+    # 各エポックの後に各プロセスのパラメータをファイルに保存
+    with open(f'logs/model_weights_after_epoch_{epoch}_rank_{rank}.txt', 'w') as f:
+        f.write(f"Model weights after epoch {epoch} on rank {rank}:\n")
+        for name, param in final_layer.named_parameters():
+            f.write(f"{name}: {param.data}\n")
+        for gcn_model in gcn_models:
+            for name, param in gcn_model.named_parameters():
+                f.write(f"{name}: {param.data}\n")
+        for adj_generator in adj_generators:
+            for name, param in adj_generator.named_parameters():
+                f.write(f"{name}: {param.data}\n")
     
     print("Training finished and model weights saved!")
 
