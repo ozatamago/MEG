@@ -64,7 +64,7 @@ def load_best_loss(directory='weights'):
             except ValueError:
                 # テンソル形式の文字列を処理
                 if best_loss_str.startswith("tensor"):
-                    best_loss = eval(best_loss_str).item()
+                    best_loss = eval(best_loss_str, {'torch': torch}).item()
                 else:
                     raise ValueError(f"Unexpected format in best_loss file: {best_loss_str}")
         print(f"Loaded best_loss: {best_loss}")
