@@ -357,7 +357,7 @@ def train(rank, world_size):
                         for i, neighbor_idx_for_val in enumerate(neighbor_indices_for_val):
                             new_adj_for_val[node_idx_for_val, neighbor_idx_for_val] = new_neighbors_for_val[i]
                     edge_index_for_val, edge_weight_for_val = dense_to_sparse(new_adj_for_val)
-                    node_features_for_val = gcn_models[layer].module(node_feature_for_val, edge_index_for_val)
+                    node_features_for_val = gcn_models[layer].module(node_features_for_val, edge_index_for_val)
                 
                 val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
