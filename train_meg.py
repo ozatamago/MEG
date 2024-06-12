@@ -362,10 +362,10 @@ def train(rank, world_size):
                 val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
                 val_loss = F.nll_loss(val_output, labels[idx_val])
-                val_acc = accuracy(val_output, labels[idx_val])
+                # val_acc = accuracy(val_output, labels[idx_val])
                         
             # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
-            if val_loss < best_loss or val_acc > best_acc:
+            if val_loss < best_loss:
                 best_loss = val_loss
                 best_acc = val_acc
                 best_model_wts = {
