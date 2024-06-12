@@ -54,11 +54,19 @@ def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_l
     with open(best_loss_filepath, 'w') as f:
         f.write(str(best_loss.item() if isinstance(best_loss, torch.Tensor) else best_loss))
 
-def load_best_loss():
-    best_loss_filepath = os.path.join(weights_dir, 'best_loss.txt')
+def load_best_loss(directory='weights'):
+    best_loss_filepath = os.path.join(directory, 'best_loss.txt')
     if os.path.exists(best_loss_filepath):
         with open(best_loss_filepath, 'r') as f:
-            best_loss = float(f.read())
+            best_loss_str = f.read().strip()
+            try:
+                best_loss = float(best_loss_str)
+            except ValueError:
+                # テンソル形式の文字列を処理
+                if best_loss_str.startswith("tensor"):
+                    best_loss = eval(best_loss_str).item()
+                else:
+                    raise ValueError(f"Unexpected format in best_loss file: {best_loss_str}")
         print(f"Loaded best_loss: {best_loss}")
     else:
         best_loss = 1000.0
