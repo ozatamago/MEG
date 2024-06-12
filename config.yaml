@@ -15,7 +15,7 @@ model:
 
 # Training hyperparameters
 training:
-  epochs: 1
+  epochs: 20
   gamma: 0.99
 
 # Positional encoding
