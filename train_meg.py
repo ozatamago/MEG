@@ -361,8 +361,8 @@ def train(rank, world_size):
                 val_acc = accuracy(val_output, labels[idx_val])
                         
             # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
-            if val_loss < best_loss:
-                best_loss = val_loss
+            if val_loss.item() < best_loss:
+                best_loss = val_loss.item()
                 best_acc = val_acc
                 best_model_wts = {
                     "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
