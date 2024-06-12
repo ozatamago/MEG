@@ -326,7 +326,7 @@ def train(rank, world_size):
         dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
         epoch_acc /= world_size
     
-         for adj_generator in adj_generators:
+        for adj_generator in adj_generators:
             adj_generator.eval()
         final_layer.eval()
         for gcn_model in gcn_models:
