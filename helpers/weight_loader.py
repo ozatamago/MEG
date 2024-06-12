@@ -42,7 +42,7 @@ def save_model_weights(model, filename):
     filepath = os.path.join(weights_dir, filename)
     torch.save(model.state_dict(), filepath)
 
-def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, val_acc, directory='weights'):
+def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss):
     for i, adj_generator in enumerate(adj_generators):
         save_model_weights(adj_generator, f'adj_generator_{i}.pth')    
     for i, gcn_model in enumerate(gcn_models):
@@ -50,11 +50,17 @@ def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, val_ac
     for i, v_network in enumerate(v_networks):
         save_model_weights(v_network, f'v_network_weights_{i}.pth')
     save_model_weights(final_layer, 'final_layer_weights.pth')
-    with open(os.path.join(directory, 'val_acc.txt'), 'w') as f:
-        f.write(str(val_acc))
+    best_loss_filepath = os.path.join(weights_dir, 'best_loss.txt')
+    with open(best_loss_filepath, 'w') as f:
+        f.write(str(best_loss))
 
-def load_val_acc(directory='weights'):
-    """検証精度を読み込む関数"""
-    with open(os.path.join(directory, 'val_acc.txt'), 'r') as f:
-        val_acc = float(f.read())
-    return val_acc
+def load_best_loss():
+    best_loss_filepath = os.path.join(weights_dir, 'best_loss.txt')
+    if os.path.exists(best_loss_filepath):
+        with open(best_loss_filepath, 'r') as f:
+            best_loss = float(f.read())
+        print(f"Loaded best_loss: {best_loss}")
+    else:
+        best_loss = 1000.0
+        print(f"No best_loss file found. Using default value: {best_loss}")
+    return best_loss
