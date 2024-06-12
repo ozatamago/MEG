@@ -58,15 +58,7 @@ def load_best_loss(directory='weights'):
     best_loss_filepath = os.path.join(directory, 'best_loss.txt')
     if os.path.exists(best_loss_filepath):
         with open(best_loss_filepath, 'r') as f:
-            best_loss_str = f.read().strip()
-            try:
-                best_loss = float(best_loss_str)
-            except ValueError:
-                # テンソル形式の文字列を処理
-                if best_loss_str.startswith("tensor"):
-                    best_loss = eval(best_loss_str, {'torch': torch}).item()
-                else:
-                    raise ValueError(f"Unexpected format in best_loss file: {best_loss_str}")
+            best_loss = float(f.read())
         print(f"Loaded best_loss: {best_loss}")
     else:
         best_loss = 1000.0
