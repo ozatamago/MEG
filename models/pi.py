@@ -65,7 +65,7 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = self.final_norm(adj_logits)
 
         adj_logits = nn.functional.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
-        adj_probs = torch.sigmoid(adj_logits / 5).to(self.device)  # Reduce to (num_neighbors + 1)
+        adj_probs = torch.sigmoid(adj_logits / 10).to(self.device)  # Reduce to (num_neighbors + 1)
 
         return adj_probs, adj_logits
 
