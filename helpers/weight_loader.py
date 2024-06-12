@@ -42,7 +42,7 @@ def save_model_weights(model, filename):
     filepath = os.path.join(weights_dir, filename)
     torch.save(model.state_dict(), filepath)
 
-def save_all_weights(adj_generators, gcn_models, v_networks, final_layer):
+def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, val_acc, directory='weights'):
     for i, adj_generator in enumerate(adj_generators):
         save_model_weights(adj_generator, f'adj_generator_{i}.pth')    
     for i, gcn_model in enumerate(gcn_models):
@@ -50,3 +50,11 @@ def save_all_weights(adj_generators, gcn_models, v_networks, final_layer):
     for i, v_network in enumerate(v_networks):
         save_model_weights(v_network, f'v_network_weights_{i}.pth')
     save_model_weights(final_layer, 'final_layer_weights.pth')
+    with open(os.path.join(directory, 'val_acc.txt'), 'w') as f:
+        f.write(str(val_acc))
+
+def load_val_acc(directory='weights'):
+    """検証精度を読み込む関数"""
+    with open(os.path.join(directory, 'val_acc.txt'), 'r') as f:
+        val_acc = float(f.read())
+    return val_acc
