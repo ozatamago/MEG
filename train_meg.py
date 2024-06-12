@@ -43,38 +43,6 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
-def evaluate_on_validation_data(gcn_models, adj_generators, final_layer, features, adj, idx_val, labels, device):
-    for adj_generator in adj_generators:
-        adj_generator.eval()
-    final_layer.eval()
-    for gcn_model in gcn_models:
-        gcn_model.eval()
-
-    with torch.no_grad():
-        new_adj = adj.clone()
-        for layer in range(len(adj_generators)):
-            for node_idx in range(new_adj.size(0)):
-                node_feature = features[node_idx].unsqueeze(0)
-                neighbor_indices = adj[node_idx].nonzero().view(-1).to('cpu')
-                neighbor_features = features[neighbor_indices].to(device)
-                with sdpa_kernel(SDPBackend.MATH):
-                    adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
-                for i, neighbor_idx in enumerate(neighbor_indices):
-                    new_adj[node_idx, neighbor_idx] = new_neighbors[i]
-            edge_index, edge_weight = dense_to_sparse(new_adj)
-            data.edge_index = edge_index.to(device)
-            data.edge_attr = edge_weight.to(device)
-            data.x = features.to(device)
-            node_features = gcn_models[layer].module(data.x, data.edge_index)
-        
-        val_output = final_layer.module(node_features[idx_val])
-        val_output = F.log_softmax(val_output, dim=1)
-        val_loss = F.nll_loss(val_output, labels[idx_val])
-        val_acc = accuracy(val_output, labels[idx_val])
-        
-        return val_loss, val_acc
-
-
 def train(rank, world_size):
     setup(rank, world_size)
 
@@ -358,9 +326,34 @@ def train(rank, world_size):
         dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
         epoch_acc /= world_size
     
-         # バリデーション評価
-        val_loss, val_acc = evaluate_on_validation_data(gcn_models, adj_generators, final_layer, features, adj, idx_val, labels, device)
-        
+         for adj_generator in adj_generators:
+            adj_generator.eval()
+        final_layer.eval()
+        for gcn_model in gcn_models:
+            gcn_model.eval()
+    
+        with torch.no_grad():
+            new_adj = adj.clone()
+            for layer in range(len(adj_generators)):
+                for node_idx in range(new_adj.size(0)):
+                    node_feature = features[node_idx].unsqueeze(0)
+                    neighbor_indices = adj[node_idx].nonzero().view(-1).to('cpu')
+                    neighbor_features = features[neighbor_indices].to(device)
+                    with sdpa_kernel(SDPBackend.MATH):
+                        adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
+                    for i, neighbor_idx in enumerate(neighbor_indices):
+                        new_adj[node_idx, neighbor_idx] = new_neighbors[i]
+                edge_index, edge_weight = dense_to_sparse(new_adj)
+                data.edge_index = edge_index.to(device)
+                data.edge_attr = edge_weight.to(device)
+                data.x = features.to(device)
+                node_features = gcn_models[layer].module(data.x, data.edge_index)
+            
+            val_output = final_layer.module(node_features[idx_val])
+            val_output = F.log_softmax(val_output, dim=1)
+            val_loss = F.nll_loss(val_output, labels[idx_val])
+            val_acc = accuracy(val_output, labels[idx_val])
+                    
         # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
         if val_loss < best_loss or val_acc > best_acc:
             best_loss = val_loss
