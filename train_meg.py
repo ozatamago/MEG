@@ -148,7 +148,7 @@ def train(rank, world_size):
     }
     
     best_acc = 0.0
-
+    best_loss = 1000
     # Training loop
     for epoch in range(epochs):
         dist.barrier()  # 各エポックの開始時に同期
