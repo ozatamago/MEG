@@ -347,8 +347,9 @@ def train(rank, world_size):
                 for layer in range(len(adj_generators)):
                     for node_idx_for_val in range(num_nodes):
                         node_feature_for_val = node_features_for_val[node_idx_for_val].unsqueeze(0)
-                        neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1).to(device)
-                        neighbor_features_for_val = features[neighbor_indices_for_val].to(device)
+                        neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1)
+                        neighbor_features_for_val = features[neighbor_indices_for_val]
+                        
                         adj_probs_for_val, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(node_feature_for_val, neighbor_features_for_val)
                         for i, neighbor_idx_for_val in enumerate(neighbor_indices_for_val):
                             new_adj_for_val[node_idx_for_val, neighbor_idx_for_val] = new_neighbors_for_val[i]
@@ -410,8 +411,8 @@ def train(rank, world_size):
 
             for node_idx in range(num_nodes):
                 node_feature = features[node_idx].unsqueeze(0)
-                neighbor_indices = adj[node_idx].nonzero().view(-1).to(device)  # Get the indices of neighbors
-                neighbor_features = features[neighbor_indices].to(device)
+                neighbor_indices = adj[node_idx].nonzero().view(-1)  # Get the indices of neighbors
+                neighbor_features = features[neighbor_indices]
                 
                 adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
 
