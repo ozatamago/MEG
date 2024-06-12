@@ -156,6 +156,13 @@ def train(rank, world_size):
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
 
+        # 各エポックの最初にベストモデルの重みをロード
+        for i, adj_generator in enumerate(adj_generators):
+            adj_generator.load_state_dict(best_model_wts["adj_generators"][i])
+        for i, gcn_model in enumerate(gcn_models):
+            gcn_model.load_state_dict(best_model_wts["gcn_models"][i])
+        final_layer.load_state_dict(best_model_wts["final_layer"])
+
         print(f"\nEpoch {epoch + 1}/{epochs}")
         for adj_generator in adj_generators:
             adj_generator.train()
@@ -379,6 +386,12 @@ def train(rank, world_size):
                 f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
     
     print("Training finished and model weights saved!")
+
+    for i, adj_generator in enumerate(adj_generators):
+        adj_generator.load_state_dict(best_model_wts["adj_generators"][i])
+    for i, gcn_model in enumerate(gcn_models):
+        gcn_model.load_state_dict(best_model_wts["gcn_models"][i])
+    final_layer.load_state_dict(best_model_wts["final_layer"])
 
     # Test phase
     print("Starting testing phase...")
