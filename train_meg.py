@@ -326,9 +326,6 @@ def train(rank, world_size):
 
         # save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
-        end_time = time.time()
-        epoch_time = end_time - start_time
-
         # Synchronize CUDA and wait for 2 seconds to ensure all operations are complete
         torch.cuda.synchronize()
         dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
@@ -374,6 +371,9 @@ def train(rank, world_size):
                     "final_layer": copy.deepcopy(final_layer.state_dict())
                 }
                 save_all_weights(adj_generators, gcn_models, v_networks, final_layer)            
+
+            end_time = time.time()
+            epoch_time = end_time - start_time
             
             print(f"Epoch {epoch + 1}/{epochs}")
             print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")
