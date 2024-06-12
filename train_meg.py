@@ -336,9 +336,10 @@ def train(rank, world_size):
         
             with torch.no_grad():
                 new_adj_for_val = adj.clone()
+                node_features_for_val = features.clone()
                 for layer in range(len(adj_generators)):
                     for node_idx_for_val in range(new_adj_for_val.size(0)):
-                        node_feature_for_val = features[node_idx_for_val].unsqueeze(0)
+                        node_feature_for_val = node_features_for_val[node_idx_for_val].unsqueeze(0)
                         neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1).to('cpu')
                         neighbor_features_for_val = features[neighbor_indices_for_val].to(device)
                         with sdpa_kernel(SDPBackend.MATH):
@@ -346,10 +347,7 @@ def train(rank, world_size):
                         for i, neighbor_idx_for_val in enumerate(neighbor_indices_for_val):
                             new_adj_for_val[node_idx_for_val, neighbor_idx_for_val] = new_neighbors_for_val[i]
                     edge_index_for_val, edge_weight_for_val = dense_to_sparse(new_adj_for_val)
-                    data.edge_index = edge_index_for_val.to(device)
-                    data.edge_attr = edge_weight_for_val.to(device)
-                    data.x = features.to(device)
-                    node_features_for_val = gcn_models[layer].module(data.x, data.edge_index)
+                    node_features_for_val = gcn_models[layer].module(features, edge_index_for_val)
                 
                 val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
