@@ -345,16 +345,15 @@ def train(rank, world_size):
                 new_adj_for_val = adj.clone()
                 node_features_for_val = features.clone()
                 for layer in range(len(adj_generators)):
-                    for node_idx_for_val in range(new_adj_for_val.size(0)):
+                    for node_idx_for_val in range(num_nodes):
                         node_feature_for_val = node_features_for_val[node_idx_for_val].unsqueeze(0)
-                        neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1).to('cpu')
+                        neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1).to(device)
                         neighbor_features_for_val = features[neighbor_indices_for_val].to(device)
-                        with sdpa_kernel(SDPBackend.MATH):
-                            adj_probs_for_val, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(node_feature_for_val, neighbor_features_for_val)
+                        adj_probs_for_val, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(node_feature_for_val, neighbor_features_for_val)
                         for i, neighbor_idx_for_val in enumerate(neighbor_indices_for_val):
                             new_adj_for_val[node_idx_for_val, neighbor_idx_for_val] = new_neighbors_for_val[i]
                     edge_index_for_val, edge_weight_for_val = dense_to_sparse(new_adj_for_val)
-                    node_features_for_val = gcn_models[layer].module(features, edge_index_for_val)
+                    node_features_for_val = gcn_models[layer].module(node_feature_for_val, edge_index_for_val)
                 
                 val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
@@ -411,11 +410,10 @@ def train(rank, world_size):
 
             for node_idx in range(num_nodes):
                 node_feature = features[node_idx].unsqueeze(0)
-                neighbor_indices = adj[node_idx].nonzero().view(-1).to('cpu')  # Get the indices of neighbors
+                neighbor_indices = adj[node_idx].nonzero().view(-1).to(device)  # Get the indices of neighbors
                 neighbor_features = features[neighbor_indices].to(device)
                 
-                with sdpa_kernel(SDPBackend.MATH):
-                    adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
+                adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
 
                 for i, neighbor_idx in enumerate(neighbor_indices):
                     new_adj[node_idx, neighbor_idx] = new_neighbors[i]
