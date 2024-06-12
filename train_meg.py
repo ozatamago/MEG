@@ -335,23 +335,23 @@ def train(rank, world_size):
                 gcn_model.eval()
         
             with torch.no_grad():
-                new_adj = adj.clone()
+                new_adj_for_val = adj.clone()
                 for layer in range(len(adj_generators)):
-                    for node_idx in range(new_adj.size(0)):
-                        node_feature = features[node_idx].unsqueeze(0)
-                        neighbor_indices = adj[node_idx].nonzero().view(-1).to('cpu')
-                        neighbor_features = features[neighbor_indices].to(device)
+                    for node_idx_for_val in range(new_adj_for_val.size(0)):
+                        node_feature_for_val = features[node_idx_for_val].unsqueeze(0)
+                        neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1).to('cpu')
+                        neighbor_features_for_val = features[neighbor_indices_for_val].to(device)
                         with sdpa_kernel(SDPBackend.MATH):
-                            adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
-                        for i, neighbor_idx in enumerate(neighbor_indices):
-                            new_adj[node_idx, neighbor_idx] = new_neighbors[i]
-                    edge_index, edge_weight = dense_to_sparse(new_adj)
-                    data.edge_index = edge_index.to(device)
-                    data.edge_attr = edge_weight.to(device)
+                            adj_probs_for_val, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(node_feature_for_val, neighbor_features_for_val)
+                        for i, neighbor_idx_for_val in enumerate(neighbor_indices_for_val):
+                            new_adj_for_val[node_idx_for_val, neighbor_idx_for_val] = new_neighbors_for_val[i]
+                    edge_index_for_val, edge_weight_for_val = dense_to_sparse(new_adj_for_val)
+                    data.edge_index = edge_index_for_val.to(device)
+                    data.edge_attr = edge_weight_for_val.to(device)
                     data.x = features.to(device)
-                    node_features = gcn_models[layer].module(data.x, data.edge_index)
+                    node_features_for_val = gcn_models[layer].module(data.x, data.edge_index)
                 
-                val_output = final_layer.module(node_features[idx_val])
+                val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
                 val_loss = F.nll_loss(val_output, labels[idx_val])
                 val_acc = accuracy(val_output, labels[idx_val])
