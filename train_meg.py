@@ -407,6 +407,7 @@ def train(rank, world_size):
         v_network.eval()
 
     with torch.no_grad():
+        node_features = features.clone()
         for layer in range(num_model_layers):
             print(f"\nTesting Layer {layer + 1}/{num_model_layers}")
 
@@ -415,7 +416,7 @@ def train(rank, world_size):
             for node_idx in range(num_nodes):
                 node_feature = features[node_idx].unsqueeze(0)
                 neighbor_indices = adj[node_idx].nonzero().view(-1)  # Get the indices of neighbors
-                neighbor_features = features[neighbor_indices]
+                neighbor_features = node_features[neighbor_indices]
                 
                 adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
 
@@ -424,10 +425,7 @@ def train(rank, world_size):
 
             print(f"new_adj.sum: {new_adj.sum()}")
             edge_index, edge_weight = dense_to_sparse(new_adj)
-            data.edge_index = edge_index.to(device)
-            data.edge_attr = edge_weight.to(device)
-            data.x = features.to(device)  # テストデータもデバイスに移動
-            node_features = gcn_models[layer].module(data.x, data.edge_index)
+            node_features = gcn_models[layer].module(node_features, edge_index)
 
         output = final_layer.module(node_features[idx_test])
         output = F.log_softmax(output, dim=1)
