@@ -293,8 +293,8 @@ def train(rank, world_size):
             print("init final_layer")
             # After all gradients are computed, step the optimizers
 
-            for i in range(4):
-                print_memory_usage(torch.device(f'cuda:{i}'))
+            # for i in range(4):
+            #     print_memory_usage(torch.device(f'cuda:{i}'))
 
             count = 0
             # 各層の勾配計算とアドバンテージの適用
