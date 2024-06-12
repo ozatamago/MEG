@@ -325,69 +325,58 @@ def train(rank, world_size):
         torch.cuda.synchronize()
         dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
         epoch_acc /= world_size
-    
-        for adj_generator in adj_generators:
-            adj_generator.eval()
-        final_layer.eval()
-        for gcn_model in gcn_models:
-            gcn_model.eval()
-    
-        with torch.no_grad():
-            new_adj = adj.clone()
-            for layer in range(len(adj_generators)):
-                for node_idx in range(new_adj.size(0)):
-                    node_feature = features[node_idx].unsqueeze(0)
-                    neighbor_indices = adj[node_idx].nonzero().view(-1).to('cpu')
-                    neighbor_features = features[neighbor_indices].to(device)
-                    with sdpa_kernel(SDPBackend.MATH):
-                        adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
-                    for i, neighbor_idx in enumerate(neighbor_indices):
-                        new_adj[node_idx, neighbor_idx] = new_neighbors[i]
-                edge_index, edge_weight = dense_to_sparse(new_adj)
-                data.edge_index = edge_index.to(device)
-                data.edge_attr = edge_weight.to(device)
-                data.x = features.to(device)
-                node_features = gcn_models[layer].module(data.x, data.edge_index)
-            
-            val_output = final_layer.module(node_features[idx_val])
-            val_output = F.log_softmax(val_output, dim=1)
-            val_loss = F.nll_loss(val_output, labels[idx_val])
-            val_acc = accuracy(val_output, labels[idx_val])
-                    
-        # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
-        if val_loss < best_loss or val_acc > best_acc:
-            best_loss = val_loss
-            best_acc = val_acc
-            best_model_wts = {
-                "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
-                "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
-                "final_layer": copy.deepcopy(final_layer.state_dict())
-            }
-        
-        print(f"Epoch {epoch + 1}/{epochs}")
-        print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")
-        print(f"Validation loss: {val_loss.item()}")
-        print(f"Validation accuracy: {val_acc.item() * 100:.2f}%")
-        print(f"Epoch time: {epoch_time}")
-    
-        with open(log_file_path, 'a') as f:
-            f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
-            f.write(f"Epoch accuracy: {epoch_acc * 25:.2f}%\n")
-            f.write(f"Validation loss: {val_loss.item()}\n")
-            f.write(f"Validation accuracy: {val_acc.item() * 100:.2f}%\n")
-            f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
 
-    # 各エポックの後に各プロセスのパラメータをファイルに保存
-    with open(f'logs/model_weights_after_epoch_{epoch}_rank_{rank}.txt', 'w') as f:
-        f.write(f"Model weights after epoch {epoch} on rank {rank}:\n")
-        for name, param in final_layer.named_parameters():
-            f.write(f"{name}: {param.data}\n")
-        for gcn_model in gcn_models:
-            for name, param in gcn_model.named_parameters():
-                f.write(f"{name}: {param.data}\n")
-        for adj_generator in adj_generators:
-            for name, param in adj_generator.named_parameters():
-                f.write(f"{name}: {param.data}\n")
+        if rank == 0:
+            for adj_generator in adj_generators:
+                adj_generator.eval()
+            final_layer.eval()
+            for gcn_model in gcn_models:
+                gcn_model.eval()
+        
+            with torch.no_grad():
+                new_adj = adj.clone()
+                for layer in range(len(adj_generators)):
+                    for node_idx in range(new_adj.size(0)):
+                        node_feature = features[node_idx].unsqueeze(0)
+                        neighbor_indices = adj[node_idx].nonzero().view(-1).to('cpu')
+                        neighbor_features = features[neighbor_indices].to(device)
+                        with sdpa_kernel(SDPBackend.MATH):
+                            adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
+                        for i, neighbor_idx in enumerate(neighbor_indices):
+                            new_adj[node_idx, neighbor_idx] = new_neighbors[i]
+                    edge_index, edge_weight = dense_to_sparse(new_adj)
+                    data.edge_index = edge_index.to(device)
+                    data.edge_attr = edge_weight.to(device)
+                    data.x = features.to(device)
+                    node_features = gcn_models[layer].module(data.x, data.edge_index)
+                
+                val_output = final_layer.module(node_features[idx_val])
+                val_output = F.log_softmax(val_output, dim=1)
+                val_loss = F.nll_loss(val_output, labels[idx_val])
+                val_acc = accuracy(val_output, labels[idx_val])
+                        
+            # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
+            if val_loss < best_loss or val_acc > best_acc:
+                best_loss = val_loss
+                best_acc = val_acc
+                best_model_wts = {
+                    "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
+                    "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
+                    "final_layer": copy.deepcopy(final_layer.state_dict())
+                }
+            
+            print(f"Epoch {epoch + 1}/{epochs}")
+            print(f"Epoch accuracy: {epoch_acc * 25:.2f}%")
+            print(f"Validation loss: {val_loss.item()}")
+            print(f"Validation accuracy: {val_acc.item() * 100:.2f}%")
+            print(f"Epoch time: {epoch_time}")
+        
+            with open(log_file_path, 'a') as f:
+                f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
+                f.write(f"Epoch accuracy: {epoch_acc * 25:.2f}%\n")
+                f.write(f"Validation loss: {val_loss.item()}\n")
+                f.write(f"Validation accuracy: {val_acc.item() * 100:.2f}%\n")
+                f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
     
     print("Training finished and model weights saved!")
 
