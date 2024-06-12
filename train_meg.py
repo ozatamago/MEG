@@ -334,21 +334,24 @@ def train(rank, world_size):
         dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
         epoch_acc /= world_size
 
+        print("validation start")
         if rank == 0:
             for adj_generator in adj_generators:
                 adj_generator.eval()
             final_layer.eval()
             for gcn_model in gcn_models:
                 gcn_model.eval()
-        
+
+            print("validation computation start")
             with torch.no_grad():
                 new_adj_for_val = adj.clone()
                 node_features_for_val = features.clone()
-                for layer in range(len(adj_generators)):
+                for layer in range(num_model_layers):
+                    print(f"validation layer: {layer}")
                     for node_idx_for_val in range(num_nodes):
                         node_feature_for_val = node_features_for_val[node_idx_for_val].unsqueeze(0)
                         neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1)
-                        neighbor_features_for_val = features[neighbor_indices_for_val]
+                        neighbor_features_for_val = node_features_for_val[neighbor_indices_for_val]
                         
                         adj_probs_for_val, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(node_feature_for_val, neighbor_features_for_val)
                         for i, neighbor_idx_for_val in enumerate(neighbor_indices_for_val):
