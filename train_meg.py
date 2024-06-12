@@ -414,6 +414,7 @@ def train(rank, world_size):
                 for i, neighbor_idx in enumerate(neighbor_indices):
                     new_adj[node_idx, neighbor_idx] = new_neighbors[i]
 
+            print(f"new_adj.sum: {new_adj.sum()}")
             edge_index, edge_weight = dense_to_sparse(new_adj)
             data.edge_index = edge_index.to(device)
             data.edge_attr = edge_weight.to(device)
