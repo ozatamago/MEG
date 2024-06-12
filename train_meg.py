@@ -129,7 +129,8 @@ def train(rank, world_size):
     v_networks = [DDP(v_network, device_ids=[rank], broadcast_buffers=False) for v_network in v_networks]
 
     load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
-
+    best_loss = load_best_loss()
+    
     # Set up optimizers
     optimizer_gcn = [optim.Adam(gcn_model.parameters(), lr=config['optimizer']['lr_gcn']) for gcn_model in gcn_models]
     optimizer_v = [optim.Adam(v_network.parameters(), lr=config['optimizer']['lr_v']) for v_network in v_networks]
@@ -148,8 +149,6 @@ def train(rank, world_size):
         "final_layer": copy.deepcopy(final_layer.state_dict())
     }
     
-    best_acc = 0.0
-    best_loss = 1000
     # Training loop
     for epoch in range(epochs):
         dist.barrier()  # 各エポックの開始時に同期
@@ -370,7 +369,7 @@ def train(rank, world_size):
                     "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
                     "final_layer": copy.deepcopy(final_layer.state_dict())
                 }
-                save_all_weights(adj_generators, gcn_models, v_networks, final_layer)            
+                save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)            
 
             end_time = time.time()
             epoch_time = end_time - start_time
