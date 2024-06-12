@@ -52,7 +52,7 @@ def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_l
     save_model_weights(final_layer, 'final_layer_weights.pth')
     best_loss_filepath = os.path.join(weights_dir, 'best_loss.txt')
     with open(best_loss_filepath, 'w') as f:
-        f.write(str(best_loss))
+        f.write(str(best_loss.item() if isinstance(best_loss, torch.Tensor) else best_loss))
 
 def load_best_loss():
     best_loss_filepath = os.path.join(weights_dir, 'best_loss.txt')
