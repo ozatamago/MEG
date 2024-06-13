@@ -374,6 +374,7 @@ def train(rank, world_size):
             print(f"Epoch {epoch + 1}/{epochs}")
             print(f"Epoch accuracy: {epoch_acc * 100:.2f}%")
             print(f"Validation loss: {val_loss.item()}")
+            print(f"best loss: {best_loss}")
             print(f"Validation accuracy: {val_acc.item() * 100:.2f}%")
             print(f"Epoch time: {epoch_time}")
         
