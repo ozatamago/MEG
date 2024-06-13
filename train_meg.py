@@ -368,6 +368,7 @@ def train(rank, world_size):
                 best_model_wts = {
                     "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
                     "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
+                    "v_networks": copy.deepcopy([v_network.state_dict() for v_network in v_networks]),
                     "final_layer": copy.deepcopy(final_layer.state_dict())
                 }
                 save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)            
