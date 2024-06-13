@@ -127,6 +127,7 @@ def train(rank, world_size):
 
     load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
     best_loss = load_best_loss()
+    best_acc = 0
     
     # Set up optimizers
     optimizer_gcn = [optim.Adam(gcn_model.parameters(), lr=config['optimizer']['lr_gcn']) for gcn_model in gcn_models]
@@ -361,7 +362,7 @@ def train(rank, world_size):
                 val_acc = accuracy(val_output, labels[idx_val])
                         
             # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
-            if val_loss.item() < best_loss:
+            if val_loss.item() < best_loss or val_acc.item() > best_acc:
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
