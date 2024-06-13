@@ -143,6 +143,7 @@ def train(rank, world_size):
     best_model_wts = {
         "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
         "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
+        "v_networks": copy.deepcopy([v_network.state_dict() for v_network in v_networks]),
         "final_layer": copy.deepcopy(final_layer.state_dict())
     }
     
@@ -157,6 +158,8 @@ def train(rank, world_size):
             adj_generator.load_state_dict(best_model_wts["adj_generators"][i])
         for i, gcn_model in enumerate(gcn_models):
             gcn_model.load_state_dict(best_model_wts["gcn_models"][i])
+        for i, v_network in enumerate(v_networks):
+            v_network.load_state_dict(best_model_wts["v_networks"][i])
         final_layer.load_state_dict(best_model_wts["final_layer"])
 
         print(f"\nEpoch {epoch + 1}/{epochs}")
