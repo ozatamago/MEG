@@ -179,16 +179,16 @@ def train(rank, world_size):
             log_probs_layers = []
             value_functions = []
             batch = batch.to(device)
-            print(f"\nbatch: {batch}")
+            # print(f"\nbatch: {batch}")
             updated_features = batch.x.clone()  # バッチ内の特徴量
             new_adj = torch.zeros((batch.num_nodes, batch.num_nodes), device=device)
             new_adj[batch.edge_index[0], batch.edge_index[1]] = 1
             adj_clone = new_adj.clone().detach()
 
-            print(f"Batch size: {batch.batch_size}")  # バッチサイズ（シードノード数）
-            print(f"Node IDs: {batch.n_id}")  # 元のグラフにおけるノードIDのShape
-            print(f"Node IDs shape: {batch.n_id.shape}")  # 元のグラフにおけるノードIDのShape
-            print(f"Edge index shape: {batch.edge_index.shape}")  # サブグラフのエッジインデックスのShape
+            # print(f"Batch size: {batch.batch_size}")  # バッチサイズ（シードノード数）
+            # print(f"Node IDs: {batch.n_id}")  # 元のグラフにおけるノードIDのShape
+            # print(f"Node IDs shape: {batch.n_id.shape}")  # 元のグラフにおけるノードIDのShape
+            # print(f"Edge index shape: {batch.edge_index.shape}")  # サブグラフのエッジインデックスのShape
 
             for layer in range(num_model_layers):
                 print(f"\nLayer {layer + 1}/{num_model_layers}")
