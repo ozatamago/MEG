@@ -382,6 +382,7 @@ def train(rank, world_size):
                 f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
                 f.write(f"Epoch accuracy: {epoch_acc * 100:.2f}%\n")
                 f.write(f"Validation loss: {val_loss.item()}\n")
+                f.write(f"Best loss: {best_loss}\n")
                 f.write(f"Validation accuracy: {val_acc.item() * 100:.2f}%\n")
                 f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
     
