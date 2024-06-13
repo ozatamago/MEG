@@ -359,6 +359,7 @@ def train(rank, world_size):
                         
             # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
             if val_loss.item() < best_loss:
+                print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
                 best_model_wts = {
