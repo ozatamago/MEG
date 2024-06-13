@@ -209,7 +209,7 @@ def train(rank, world_size):
                     adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
 
                     if node_idx in sampled_indices_set:
-                        log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits/10 + 1e-9, new_neighbors)
+                        log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits/8 + 1e-9, new_neighbors)
                         layer_log_probs.append(log_probs)
 
                     # Use the generated new neighbors to update the new adjacency matrix
@@ -338,8 +338,8 @@ def train(rank, world_size):
             for gcn_model in gcn_models:
                 gcn_model.eval()
 
-            print("validation computation start")
             with torch.no_grad():
+                print("validation computation start")
                 new_adj_for_val = adj.clone()
                 node_features_for_val = features.clone()
                 for layer in range(num_model_layers):
