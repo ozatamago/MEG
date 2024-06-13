@@ -327,8 +327,8 @@ def train(rank, world_size):
         dist.all_reduce(epoch_acc, op=dist.ReduceOp.SUM)
         epoch_acc /= world_size
 
-        print("validation start")
         if rank == 0:
+            print("validation start")
             for adj_generator in adj_generators:
                 adj_generator.eval()
             final_layer.eval()
