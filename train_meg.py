@@ -329,9 +329,12 @@ def train(rank, world_size):
         if rank == 0:
             print("validation start")
             for adj_generator in adj_generators:
+                adj_generator.to(device)
                 adj_generator.eval()
+            final_layer.to(device)
             final_layer.eval()
             for gcn_model in gcn_models:
+                gcn_model.to(device)
                 gcn_model.eval()
 
             with torch.no_grad():
