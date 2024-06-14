@@ -124,9 +124,7 @@ def train(rank, world_size):
     gcn_models = [DDP(gcn_model, device_ids=[rank], broadcast_buffers=False) for gcn_model in gcn_models]
     final_layer = DDP(final_layer, device_ids=[rank], broadcast_buffers=False)
     v_networks = [DDP(v_network, device_ids=[rank], broadcast_buffers=False) for v_network in v_networks]
-
-    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
-    best_loss = load_best_loss()
+    
     best_acc = 0
     
     # Set up optimizers
@@ -154,14 +152,8 @@ def train(rank, world_size):
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
 
-        # 各エポックの最初にベストモデルの重みをロード
-        for i, adj_generator in enumerate(adj_generators):
-            adj_generator.load_state_dict(best_model_wts["adj_generators"][i])
-        for i, gcn_model in enumerate(gcn_models):
-            gcn_model.load_state_dict(best_model_wts["gcn_models"][i])
-        for i, v_network in enumerate(v_networks):
-            v_network.load_state_dict(best_model_wts["v_networks"][i])
-        final_layer.load_state_dict(best_model_wts["final_layer"])
+        load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
+        best_loss = load_best_loss()
 
         print(f"\nEpoch {epoch + 1}/{epochs}")
         for adj_generator in adj_generators:
@@ -366,12 +358,6 @@ def train(rank, world_size):
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
-                best_model_wts = {
-                    "adj_generators": copy.deepcopy([adj_gen.state_dict() for adj_gen in adj_generators]),
-                    "gcn_models": copy.deepcopy([gcn_model.state_dict() for gcn_model in gcn_models]),
-                    "v_networks": copy.deepcopy([v_network.state_dict() for v_network in v_networks]),
-                    "final_layer": copy.deepcopy(final_layer.state_dict())
-                }
                 save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)            
 
             end_time = time.time()
