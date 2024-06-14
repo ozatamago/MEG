@@ -156,15 +156,15 @@ def train(rank, world_size):
 
         print(f"\nEpoch {epoch + 1}/{epochs}")
         for adj_generator in adj_generators:
-            adj_generator.to(device)
+            adj_generator.to(rank)
             adj_generator.train()
-        final_layer.to(device)
+        final_layer.to(rank)
         final_layer.train()
         for gcn_model in gcn_models:
-            gcn_model.to(device)
+            gcn_model.to(rank)
             gcn_model.train()
         for v_network in v_networks:
-            v_network.to(device)
+            v_network.to(rank)
             v_network.train()
 
         # バッチ処理のためのNeighborLoaderの反復処理
@@ -329,12 +329,12 @@ def train(rank, world_size):
         if rank == 0:
             print("validation start")
             for adj_generator in adj_generators:
-                adj_generator.to(device)
+                adj_generator.to(rank)
                 adj_generator.eval()
-            final_layer.to(device)
+            final_layer.to(rank)
             final_layer.eval()
             for gcn_model in gcn_models:
-                gcn_model.to(device)
+                gcn_model.to(rank)
                 gcn_model.eval()
 
             with torch.no_grad():
