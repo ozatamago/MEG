@@ -14,6 +14,7 @@ import torch_geometric.transforms as T
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
 import copy
+import matplotlib.pyplot as plt
 
 from models.pi import AdjacencyGenerator
 from models.GCN import GCN
@@ -138,6 +139,11 @@ def train(rank, world_size):
     if rank == 0:
         with open(log_file_path, 'w') as f:
             f.write("Training Log\n")
+
+    # 配列を初期化
+    epoch_acc_list = []
+    val_acc_list = []
+    val_loss_list = []
     
     # Training loop
     for epoch in range(epochs):
@@ -359,6 +365,11 @@ def train(rank, world_size):
 
             end_time = time.time()
             epoch_time = end_time - start_time
+
+            # 配列に追加
+            epoch_acc_list.append(epoch_acc.item())
+            val_acc_list.append(val_acc.item())
+            val_loss_list.append(val_loss.item())
             
             print(f"Epoch {epoch + 1}/{epochs}")
             print(f"Epoch accuracy: {epoch_acc * 100:.2f}%")
@@ -380,6 +391,35 @@ def train(rank, world_size):
     print("Training finished and model weights saved!")
 
     load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
+
+    
+    # プロットする関数を定義
+    def plot_metrics(epoch_acc_list, val_acc_list, val_loss_list):
+        plt.figure(figsize=(12, 5))
+    
+        # ACCのプロット
+        plt.subplot(1, 2, 1)
+        plt.plot(epoch_acc_list, label='Training Accuracy')
+        plt.plot(val_acc_list, label='Validation Accuracy')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.title('Training and Validation Accuracy')
+        plt.legend()
+    
+        # Lossのプロット
+        plt.subplot(1, 2, 2)
+        plt.plot(val_loss_list, label='Validation Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Validation Loss')
+        plt.legend()
+    
+        plt.tight_layout()
+        plt.show()
+    
+    # プロットを呼び出す
+    if rank == 0:
+        plot_metrics(epoch_acc_list, val_acc_list, val_loss_list)
 
     # Test phase
     print("Starting testing phase...")
