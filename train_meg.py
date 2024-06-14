@@ -367,10 +367,10 @@ def train(rank, world_size):
             
             print(f"Epoch {epoch + 1}/{epochs}")
             print(f"Epoch accuracy: {epoch_acc * 100:.2f}%")
-            print(f"Validation loss: {val_loss.item()}")
-            print(f"best loss: {best_loss}")
             print(f"Validation accuracy: {val_acc.item() * 100:.2f}%")
             print(f"best accuracy: {best_acc}")
+            print(f"Validation loss: {val_loss.item()}")
+            print(f"best loss: {best_loss}")
             print(f"Epoch time: {epoch_time}")
         
             with open(log_file_path, 'a') as f:
