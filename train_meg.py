@@ -360,7 +360,7 @@ def train(rank, world_size):
             
             print(f"Epoch {epoch + 1}/{epochs}")
             print(f"Epoch accuracy: {epoch_acc * 100:.2f}%")
-            print(f"Validation accuracy: {val_acc.item() * 100:.2f}%")
+            print(f"Validation accuracy: {val_acc.item()}")
             print(f"best accuracy: {best_acc}")
             print(f"Validation loss: {val_loss.item()}")
             print(f"best loss: {best_loss}")
@@ -369,7 +369,7 @@ def train(rank, world_size):
             with open(log_file_path, 'a') as f:
                 f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
                 f.write(f"Epoch accuracy: {epoch_acc * 100:.2f}%\n")
-                f.write(f"Validation accuracy: {val_acc.item() * 100:.2f}%\n")
+                f.write(f"Validation accuracy: {val_acc.item()}\n")
                 f.write(f"Best  accuracy: {best_acc}\n")
                 f.write(f"Validation loss: {val_loss.item()}\n")
                 f.write(f"Best loss: {best_loss}\n")
