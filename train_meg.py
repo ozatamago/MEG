@@ -381,11 +381,7 @@ def train(rank, world_size):
     
     print("Training finished and model weights saved!")
 
-    for i, adj_generator in enumerate(adj_generators):
-        adj_generator.load_state_dict(best_model_wts["adj_generators"][i])
-    for i, gcn_model in enumerate(gcn_models):
-        gcn_model.load_state_dict(best_model_wts["gcn_models"][i])
-    final_layer.load_state_dict(best_model_wts["final_layer"])
+    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
     # Test phase
     print("Starting testing phase...")
