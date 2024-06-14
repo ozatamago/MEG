@@ -332,6 +332,8 @@ def train(rank, world_size):
                 gcn_model.eval()
 
             with torch.no_grad():
+                val_loss = 0
+                val_acc = 0
                 print("validation computation start")
                 new_adj_for_val = adj.clone()
                 node_features_for_val = features.clone()
