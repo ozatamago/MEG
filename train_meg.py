@@ -394,7 +394,10 @@ def train(rank, world_size):
 
     
     # プロットする関数を定義
-    def plot_metrics(epoch_acc_list, val_acc_list, val_loss_list):
+    def plot_metrics(epoch_acc_list, val_acc_list, val_loss_list, output_dir='plots'):
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
         plt.figure(figsize=(12, 5))
     
         # ACCのプロット
@@ -415,8 +418,9 @@ def train(rank, world_size):
         plt.legend()
     
         plt.tight_layout()
-        plt.show()
-    
+        plt.savefig(os.path.join(output_dir, 'training_validation_metrics.png'))
+        plt.close()
+
     # プロットを呼び出す
     if rank == 0:
         plot_metrics(epoch_acc_list, val_acc_list, val_loss_list)
