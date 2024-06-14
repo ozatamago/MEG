@@ -347,9 +347,11 @@ def train(rank, world_size):
                 val_output = F.log_softmax(val_output, dim=1)
                 val_loss = F.nll_loss(val_output, labels[idx_val])
                 val_acc = accuracy(val_output, labels[idx_val])
-                        
+
+             # or val_acc.item() > best_acc
+            
             # バリデーション損失が改善された場合、または精度が向上した場合にモデルを保存
-            if val_loss.item() < best_loss or val_acc.item() > best_acc:
+            if val_loss.item() < best_loss:
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
