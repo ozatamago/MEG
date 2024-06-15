@@ -45,6 +45,26 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
+checkpoint_dir = 'checkpoints'
+if not os.path.exists(checkpoint_dir):
+    os.makedirs(checkpoint_dir)
+checkpoint_path = os.path.join(checkpoint_dir, 'model.checkpoint')
+
+# モデルの重みを保存する関数
+def save_checkpoint(state, filename=checkpoint_path):
+    torch.save(state, filename)
+
+# モデルの重みをロードする関数
+def load_checkpoint(model, optimizer, filename=checkpoint_path):
+    if os.path.isfile(filename):
+        print(f"Loading checkpoint '{filename}'")
+        checkpoint = torch.load(filename, map_location={'cuda:0': 'cuda:%d' % rank})
+        model.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        print(f"Loaded checkpoint '{filename}'")
+    else:
+        print(f"No checkpoint found at '{filename}'")
+
 def train(rank, world_size):
     setup(rank, world_size)
 
@@ -144,6 +164,22 @@ def train(rank, world_size):
     epoch_acc_list = []
     val_acc_list = []
     val_loss_list = []
+
+    if rank == 0:
+        if os.path.exists(checkpoint_path):
+            load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
+            best_loss = load_best_loss()
+
+    dist.barrier()
+    map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
+    for adj_gen in adj_generators:
+        adj_gen.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+    for gcn_model in gcn_models:
+        gcn_model.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+    for v_network in v_networks:
+        v_network.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+    final_layer.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+
     
     # Training loop
     for epoch in range(epochs):
