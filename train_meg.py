@@ -171,14 +171,16 @@ def train(rank, world_size):
             best_loss = load_best_loss()
 
     dist.barrier()
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
-    for adj_gen in adj_generators:
-        adj_gen.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
-    for gcn_model in gcn_models:
-        gcn_model.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
-    for v_network in v_networks:
-        v_network.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
-    final_layer.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+    if os.path.exists(checkpoint_path):
+        for adj_gen in adj_generators:
+            adj_gen.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+        for gcn_model in gcn_models:
+            gcn_model.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+        for v_network in v_networks:
+            v_network.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+        final_layer.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
+    else:
+        print(f"No checkpoint found at '{checkpoint_path}'. Skipping load.")
 
     
     # Training loop
