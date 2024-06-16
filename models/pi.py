@@ -24,7 +24,7 @@ class AdjacencyGenerator(nn.Module):
         # Add&Norm for final logits
         self.final_norm = nn.LayerNorm(d_model).to(device)
 
-        Initialize weights
+        # Initialize weights
         self._init_weights()
 
     def _init_weights(self):
