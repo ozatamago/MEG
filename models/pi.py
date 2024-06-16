@@ -24,22 +24,22 @@ class AdjacencyGenerator(nn.Module):
         # Add&Norm for final logits
         self.final_norm = nn.LayerNorm(d_model).to(device)
 
-        # Initialize weights
-        # self._init_weights()
+        Initialize weights
+        self._init_weights()
 
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.weight, 3)
                 if m.bias is not None:
-                    nn.init.zeros_(m.bias)
+                    nn.init.constant_(m.bias, 3)
             elif isinstance(m, nn.MultiheadAttention):
-                nn.init.xavier_uniform_(m.in_proj_weight)
+                nn.init.constant_(m.in_proj_weight, 3)
                 if m.in_proj_bias is not None:
-                    nn.init.zeros_(m.in_proj_bias)
-                nn.init.xavier_uniform_(m.out_proj.weight)
+                    nn.init.constant_(m.in_proj_bias, 3)
+                nn.init.constant_(m.out_proj.weight, 3)
                 if m.out_proj.bias is not None:
-                    nn.init.zeros_(m.out_proj.bias)
+                    nn.init.constant_(m.out_proj.bias, 3)
 
     def forward(self, node_features, neighbor_features):
         # Queryはnode_features、KeyとValueはneighbor_features
