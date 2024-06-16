@@ -165,22 +165,8 @@ def train(rank, world_size):
     val_acc_list = []
     val_loss_list = []
 
-    if rank == 0:
-        if os.path.exists(checkpoint_path):
-            load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
-            best_loss = load_best_loss()
-
-    dist.barrier()
-    if os.path.exists(checkpoint_path):
-        for adj_gen in adj_generators:
-            adj_gen.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
-        for gcn_model in gcn_models:
-            gcn_model.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
-        for v_network in v_networks:
-            v_network.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
-        final_layer.load_state_dict(torch.load(checkpoint_path, map_location=map_location))
-    else:
-        print(f"No checkpoint found at '{checkpoint_path}'. Skipping load.")
+    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
+    best_loss = load_best_loss()
 
     
     # Training loop
@@ -188,9 +174,6 @@ def train(rank, world_size):
         dist.barrier()  # 各エポックの開始時に同期
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
-
-        load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
-        best_loss = load_best_loss()
 
         print(f"\nEpoch {epoch + 1}/{epochs}")
         for adj_generator in adj_generators:
@@ -406,7 +389,23 @@ def train(rank, world_size):
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
-                save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)            
+                save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)
+                save_checkpoint({
+                    'epoch': epoch,
+                    'state_dict': {
+                        'adj_generators': [adj_generator.module.state_dict() for adj_generator in adj_generators],
+                        'gcn_models': [gcn_model.module.state_dict() for gcn_model in gcn_models],
+                        'v_networks': [v_network.module.state_dict() for v_network in v_networks],
+                        'final_layer': final_layer.module.state_dict()
+                    },
+                    'optimizer': {
+                        'optimizer_adj': [opt.state_dict() for opt in optimizer_adj],
+                        'optimizer_gcn': [opt.state_dict() for opt in optimizer_gcn],
+                        'optimizer_v': [opt.state_dict() for opt in optimizer_v],
+                        'optimizer_final_layer': optimizer_final_layer.state_dict()
+                    },
+                    'best_loss': best_loss
+                })       
 
             end_time = time.time()
             epoch_time = end_time - start_time
@@ -472,6 +471,17 @@ def train(rank, world_size):
 
     # Test phase
     print("Starting testing phase...")
+
+    # Load the best checkpoint
+    best_checkpoint = torch.load(checkpoint_path, map_location={'cuda:0': 'cuda:%d' % rank})
+    for i, adj_generator in enumerate(adj_generators):
+        adj_generator.module.load_state_dict(best_checkpoint['state_dict']['adj_generators'][i])
+    for i, gcn_model in enumerate(gcn_models):
+        gcn_model.module.load_state_dict(best_checkpoint['state_dict']['gcn_models'][i])
+    for i, v_network in enumerate(v_networks):
+        v_network.module.load_state_dict(best_checkpoint['state_dict']['v_networks'][i])
+    final_layer.module.load_state_dict(best_checkpoint['state_dict']['final_layer'])
+    
     for adj_generator in adj_generators:
         adj_generator.eval()
     final_layer.eval()
