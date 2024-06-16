@@ -226,7 +226,7 @@ def train(rank, world_size):
                     adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
 
                     if node_idx in sampled_indices_set:
-                        log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits + 1e-9, new_neighbors)
+                        log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits/5 + 1e-9, new_neighbors)
                         layer_log_probs.append(log_probs)
 
                     # Use the generated new neighbors to update the new adjacency matrix
