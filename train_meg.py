@@ -317,7 +317,7 @@ def train(rank, world_size):
                 # visualize_tensor(log_probs_with_adv, f"log_probs_with_adv_graph_{count}")
                 print(f"log_probs_with_adv: {log_probs_with_adv}")
                 log_probs_with_adv.backward(retain_graph=True)
-                # torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
+                torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
                 opt_adj.step()  # 各 optimizer_adj に対してステップ
                 count = count + 1
 
