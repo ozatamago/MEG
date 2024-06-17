@@ -40,6 +40,10 @@ class AdjacencyGenerator(nn.Module):
                 nn.init.constant_(m.out_proj.weight, 5)
                 if m.out_proj.bias is not None:
                     nn.init.constant_(m.out_proj.bias, 5)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.constant_(m.weight, 5)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 5)
 
         # Print initialized weights to confirm
         for name, param in self.named_parameters():
