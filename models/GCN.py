@@ -10,9 +10,6 @@ class GCN(nn.Module):
         self.conv = GCNConv(in_channels, out_channels)
         self.relu = nn.ReLU(inplace=False)
 
-        # Print GCNConv attributes to debug
-        print(f'GCNConv parameters: {self.conv.__dict__}')
-
         # Initialize weights to 3
         self._initialize_weights()
 
@@ -24,9 +21,14 @@ class GCN(nn.Module):
     def _initialize_weights(self):
         # Initialize all weights and biases to 3
         for module in self.modules():
-            if isinstance(module, (nn.Linear, nn.Conv2d, GCNConv)):
+            if isinstance(module, (nn.Linear, nn.Conv2d)):
                 if hasattr(module, 'weight'):
                     nn.init.constant_(module.weight, 3)
+                if hasattr(module, 'bias') and module.bias is not None:
+                    nn.init.constant_(module.bias, 3)
+            elif isinstance(module, GCNConv):
+                if hasattr(module.lin, 'weight'):
+                    nn.init.constant_(module.lin.weight, 3)
                 if hasattr(module, 'bias') and module.bias is not None:
                     nn.init.constant_(module.bias, 3)
 
