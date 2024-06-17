@@ -307,12 +307,6 @@ def train(rank, world_size):
             torch.nn.utils.clip_grad_norm_(final_layer.parameters(), max_norm=0.1)
             optimizer_final_layer.step()
 
-            print("init final_layer")
-            # After all gradients are computed, step the optimizers
-
-            # for i in range(4):
-            #     print_memory_usage(torch.device(f'cuda:{i}'))
-
             count = 0
             # 各層の勾配計算とアドバンテージの適用
             for opt_adj, adj_generator in zip(optimizer_adj, adj_generators):
