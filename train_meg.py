@@ -196,7 +196,7 @@ def train(rank, world_size):
             log_probs_layers = []
             value_functions = []
             batch = batch.to(device)
-            # print(f"\nbatch: {batch}")
+            print(f"\nbatch: {batch}")
             updated_features = batch.x.clone()  # バッチ内の特徴量
             new_adj = torch.zeros((batch.num_nodes, batch.num_nodes), device=device)
             new_adj[batch.edge_index[0], batch.edge_index[1]] = 1
