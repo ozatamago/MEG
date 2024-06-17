@@ -30,16 +30,16 @@ class AdjacencyGenerator(nn.Module):
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.constant_(m.weight, -5)
+                nn.init.constant_(m.weight, 5)
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, -5)
+                    nn.init.constant_(m.bias, 5)
             elif isinstance(m, nn.MultiheadAttention):
-                nn.init.constant_(m.in_proj_weight, -5)
+                nn.init.constant_(m.in_proj_weight, 5)
                 if m.in_proj_bias is not None:
-                    nn.init.constant_(m.in_proj_bias, -5)
-                nn.init.constant_(m.out_proj.weight, -5)
+                    nn.init.constant_(m.in_proj_bias, 5)
+                nn.init.constant_(m.out_proj.weight, 5)
                 if m.out_proj.bias is not None:
-                    nn.init.constant_(m.out_proj.bias, -5)
+                    nn.init.constant_(m.out_proj.bias, 5)
 
     def forward(self, node_features, neighbor_features):
         # Queryはnode_features、KeyとValueはneighbor_features
