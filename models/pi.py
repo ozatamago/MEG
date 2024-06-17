@@ -25,7 +25,7 @@ class AdjacencyGenerator(nn.Module):
         self.final_norm = nn.LayerNorm(d_model).to(device)
 
         # Initialize weights
-        self._init_weights()
+        # self._init_weights()
 
     def _init_weights(self):
         for m in self.modules():
