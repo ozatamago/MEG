@@ -30,16 +30,16 @@ class AdjacencyGenerator(nn.Module):
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.constant_(m.weight, 5)
+                nn.init.constant_(m.weight, -5)
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, 5)
+                    nn.init.constant_(m.bias, -5)
             elif isinstance(m, nn.MultiheadAttention):
-                nn.init.constant_(m.in_proj_weight, 5)
+                nn.init.constant_(m.in_proj_weight, -5)
                 if m.in_proj_bias is not None:
-                    nn.init.constant_(m.in_proj_bias, 5)
-                nn.init.constant_(m.out_proj.weight, 5)
+                    nn.init.constant_(m.in_proj_bias, -5)
+                nn.init.constant_(m.out_proj.weight, -5)
                 if m.out_proj.bias is not None:
-                    nn.init.constant_(m.out_proj.bias, 5)
+                    nn.init.constant_(m.out_proj.bias, -5)
 
     def forward(self, node_features, neighbor_features):
         # Queryはnode_features、KeyとValueはneighbor_features
@@ -65,7 +65,7 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = self.final_norm(adj_logits)
 
         adj_logits = nn.functional.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
-        adj_probs = torch.sigmoid(adj_logits / 50).to(self.device)  # Reduce to (num_neighbors + 1)
+        adj_probs = torch.sigmoid(adj_logits / 1).to(self.device)  # Reduce to (num_neighbors + 1)
 
         return adj_probs, adj_logits
 
