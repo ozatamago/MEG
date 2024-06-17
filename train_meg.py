@@ -90,7 +90,7 @@ def train(rank, world_size):
     data = dataset[0].to(device)
 
     # Initialize NeighborLoader
-    num_neighbors = [30] * 5
+    num_neighbors = [5] * 5
 
     train_loader = NeighborLoader(
         data,
