@@ -56,9 +56,6 @@ class AdjacencyGenerator(nn.Module):
         key = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
         value = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
 
-        print(f"node_features:{node_features}")
-        print(f"neighbor_features:{neighbor_features}")
-
         for i in range(self.num_layers):
             attn_output, attn_output_weights = self.cross_attentions[i](query, key, value)
             attn_output = nn.functional.relu(attn_output)  # Apply ReLU activation
@@ -76,12 +73,12 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = self.final_norm(adj_logits)
 
         adj_logits = nn.functional.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
-        adj_probs = torch.sigmoid(adj_logits / 10).to(self.device)  # Reduce to (num_neighbors + 1)
 
-        return adj_probs, adj_logits
+        return adj_logits
 
     def generate_new_neighbors(self, node_features, neighbor_features):
-        adj_probs, adj_logits = self.forward(node_features, neighbor_features)
+        adj_logits = self.forward(node_features, neighbor_features)
+        adj_probs = torch.sigmoid(adj_logits / 10).to(self.device)  # Reduce to (num_neighbors + 1)
         new_neighbors = torch.bernoulli(adj_probs).to(self.device)  # Sample new neighbors
 
         return adj_logits, new_neighbors
