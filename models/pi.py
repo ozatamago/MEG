@@ -56,6 +56,9 @@ class AdjacencyGenerator(nn.Module):
         key = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
         value = node_features.unsqueeze(1)  # (1, num_nodes, d_model)
 
+        print(f"node_features:{node_features}")
+        print(f"neighbor_features:{neighbor_features}")
+
         for i in range(self.num_layers):
             attn_output, attn_output_weights = self.cross_attentions[i](query, key, value)
             attn_output = nn.functional.relu(attn_output)  # Apply ReLU activation
