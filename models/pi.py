@@ -31,15 +31,15 @@ class AdjacencyGenerator(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, 0.5)
+                    nn.init.constant_(m.bias, 1)
             elif isinstance(m, nn.MultiheadAttention):
                 if m.in_proj_bias is not None:
-                    nn.init.constant_(m.in_proj_bias, 0.5)
+                    nn.init.constant_(m.in_proj_bias, 1)
                 if m.out_proj.bias is not None:
-                    nn.init.constant_(m.out_proj.bias, 0.5)
+                    nn.init.constant_(m.out_proj.bias, 1)
             elif isinstance(m, nn.LayerNorm):
                 if m.bias is not None:
-                    nn.init.constant_(m.bias, 0.5)
+                    nn.init.constant_(m.bias, 1)
 
         # # Print initialized weights to confirm
         # for name, param in self.named_parameters():
