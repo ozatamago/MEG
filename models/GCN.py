@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 
 class GCN(nn.Module):
@@ -11,6 +10,9 @@ class GCN(nn.Module):
         self.conv = GCNConv(in_channels, out_channels)
         self.relu = nn.ReLU(inplace=False)
 
+        # Print GCNConv attributes to debug
+        print(f'GCNConv parameters: {self.conv.__dict__}')
+
         # Initialize weights to 3
         self._initialize_weights()
 
@@ -20,13 +22,13 @@ class GCN(nn.Module):
         return x
 
     def _initialize_weights(self):
-        # Initialize weights and biases to 3 for GCNConv
-        nn.init.constant_(self.conv.lin.weight, 3)  # self.conv.lin is a torch.nn.Linear layer inside GCNConv
-        if self.conv.lin.bias is not None:
-            nn.init.constant_(self.conv.lin.bias, 3)
-        nn.init.constant_(self.conv.root.weight, 3)  # self.conv.root is also a torch.nn.Linear layer inside GCNConv
-        if self.conv.root.bias is not None:
-            nn.init.constant_(self.conv.root.bias, 3)
+        # Initialize all weights and biases to 3
+        for module in self.modules():
+            if isinstance(module, (nn.Linear, nn.Conv2d, GCNConv)):
+                if hasattr(module, 'weight'):
+                    nn.init.constant_(module.weight, 3)
+                if hasattr(module, 'bias') and module.bias is not None:
+                    nn.init.constant_(module.bias, 3)
 
 # Example usage:
 # model = GCN(in_channels=16, hidden_channels=32, out_channels=32, num_layers=2)
