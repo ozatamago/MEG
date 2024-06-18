@@ -233,7 +233,7 @@ def train(rank, world_size):
                     for i, neighbor_idx in enumerate(neighbor_indices):
                         new_adj[node_idx, neighbor_idx] = new_neighbors[i].item()
 
-                    print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
+                    # print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
                     # print(f"new_neighbors: {new_neighbors}")
                     
                     del adj_logits, new_neighbors
