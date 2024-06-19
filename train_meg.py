@@ -157,12 +157,12 @@ def train(rank, world_size):
     val_acc_list = []
     val_loss_list = []
 
-    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
     best_loss = load_best_loss()
 
     
     # Training loop
     for epoch in range(epochs):
+        load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
         dist.barrier()  # 各エポックの開始時に同期
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
