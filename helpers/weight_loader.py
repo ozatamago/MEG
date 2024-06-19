@@ -25,6 +25,9 @@ def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
             print(f"Loaded {filename}")
         except FileNotFoundError as e:
             print(f"{e}")
+            # 新しいモデルを初期化して保存
+            save_model_weights(model, filename)
+            print(f"Initialized and saved new model: {filename}")
 
     for i, adj_generator_model in enumerate(adj_generators):
         filename = f'adj_generator_{i}.pth'
