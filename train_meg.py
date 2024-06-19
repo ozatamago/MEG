@@ -54,17 +54,6 @@ checkpoint_path = os.path.join(checkpoint_dir, 'model.checkpoint')
 def save_checkpoint(state, filename=checkpoint_path):
     torch.save(state, filename)
 
-# モデルの重みをロードする関数
-def load_checkpoint(model, optimizer, filename=checkpoint_path):
-    if os.path.isfile(filename):
-        print(f"Loading checkpoint '{filename}'")
-        checkpoint = torch.load(filename, map_location={'cuda:0': 'cuda:%d' % rank})
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        print(f"Loaded checkpoint '{filename}'")
-    else:
-        print(f"No checkpoint found at '{filename}'")
-
 def train(rank, world_size):
     setup(rank, world_size)
 
@@ -135,19 +124,22 @@ def train(rank, world_size):
     adj = adj.to(device)  # adjもデバイスに移動
 
     # Initialize components
-    adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, d_ff, 1, hidden_size, device, dropout).to(device) for _ in range(num_model_layers)]
+    adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, 1, device, dropout).to(device) for _ in range(num_model_layers)]
     gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
     final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
     v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
 
-    # To paralleliize for GPUs
+    # To parallelize for GPUs
     adj_generators = [DDP(adj_gen, device_ids=[rank], broadcast_buffers=False) for adj_gen in adj_generators]
     gcn_models = [DDP(gcn_model, device_ids=[rank], broadcast_buffers=False) for gcn_model in gcn_models]
     final_layer = DDP(final_layer, device_ids=[rank], broadcast_buffers=False)
     v_networks = [DDP(v_network, device_ids=[rank], broadcast_buffers=False) for v_network in v_networks]
-    
+
+    # Ensure the weight files are present
+    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
+
     best_acc = 0
-    
+
     # Set up optimizers
     optimizer_gcn = [optim.Adam(gcn_model.parameters(), lr=config['optimizer']['lr_gcn']) for gcn_model in gcn_models]
     optimizer_v = [optim.Adam(v_network.parameters(), lr=config['optimizer']['lr_v']) for v_network in v_networks]
@@ -202,66 +194,43 @@ def train(rank, world_size):
             new_adj[batch.edge_index[0], batch.edge_index[1]] = 1
             adj_clone = new_adj.clone().detach()
 
-            # print(f"Batch size: {batch.batch_size}")  # バッチサイズ（シードノード数）
-            # print(f"Node IDs: {batch.n_id}")  # 元のグラフにおけるノードIDのShape
-            # print(f"Node IDs shape: {batch.n_id.shape}")  # 元のグラフにおけるノードIDのShape
-            # print(f"Edge index shape: {batch.edge_index.shape}")  # サブグラフのエッジインデックスのShape
-
             for layer in range(num_model_layers):
                 print(f"\nLayer {layer + 1}/{num_model_layers}")
 
+                updated_features_for_adj = updated_features.clone().detach()
+
                 # ノードをサンプリング
                 sampled_indices = sample_nodes(updated_features, num_of_samples=140)
-                sampled_indices_set = set(sampled_indices.tolist())  # サンプリングされたノードのセット
+
+                adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
                 
-                # For each node, generate new neighbors using Bernoulli distribution
-                layer_log_probs = []
-                for node_idx in range(batch.num_nodes):
-                    # print(node_idx)
-                    node_feature = updated_features[node_idx].unsqueeze(0).detach()
-                    neighbor_indices = adj_clone[node_idx].nonzero().view(-1).detach()
-                    neighbor_features = updated_features[neighbor_indices].detach()
-
-                # with sdpa_kernel(SDPBackend.MATH):  # adj_generatorにmathバックエンドを適用
-                    adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
-
-                    if node_idx in sampled_indices_set:
-                        log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 500 + 1e-9, new_neighbors)
-                        layer_log_probs.append(log_probs)
-
-                    # Use the generated new neighbors to update the new adjacency matrix
-                    for i, neighbor_idx in enumerate(neighbor_indices):
-                        new_adj[node_idx, neighbor_idx] = new_neighbors[i].item()
-
-                    print(f"adj_probs: {torch.sigmoid(adj_logits/3)}")
-                    # print(f"new_neighbors: {new_neighbors}")
-                    
-                    del adj_logits, new_neighbors
-                    torch.cuda.empty_cache()
-
-                log_probs_layers.append(sum(layer_log_probs))
+                # ログ確率の計算
+                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits + 1e-9, new_neighbors.float())
+                log_probs_layers.append(log_probs)
                 print(f"log_probs_layers: {log_probs_layers}")
+
+                # 新しい隣接行列を更新
+                adj_clone = torch.zeros((batch.num_nodes, batch.num_nodes), device=device)
+                adj_clone[batch.edge_index[0], batch.edge_index[1]] = new_neighbors.float()
 
                 # Sampled nodes for computing gradient and state value function V
                 sampled_features = updated_features[sampled_indices].detach()
                 print(f"Sampled features for layer {layer + 1}: {sampled_features.shape}")
 
-                # Store log probabilities and value functions for later use
-            # with sdpa_kernel(SDPBackend.MATH):  # VNetworkにmathバックエンドを適用
                 value_function = v_networks[layer].module(sampled_features.unsqueeze(0)).view(-1)
                 value_functions.append(value_function)
                 print(f"Value function for layer {layer + 1}: {value_function}")
 
                 # Forward pass through GCN using all nodes
-                edge_index, edge_weight = dense_to_sparse(new_adj)
+                edge_index, _ = dense_to_sparse(adj_clone)
                 node_features = gcn_models[layer].module(updated_features, edge_index)
 
                 updated_features = node_features.clone()
 
                 # Calculate reward
-                sum_new_neighbors = new_adj.sum().item()  # 合計を計算
+                sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
                 print(f"sum_new_neighbors: {sum_new_neighbors}")
-                log_sum = 1.0/torch.exp(torch.tensor(sum_new_neighbors /2000.0, device=device))  # sum_new_neighborsをtensorに変換
+                log_sum = 1.0 / torch.exp(torch.tensor(sum_new_neighbors / 2000.0, device=device))  # sum_new_neighborsをtensorに変換
                 reward = log_sum.item()
 
                 rewards_for_adj.append(reward)
@@ -272,7 +241,7 @@ def train(rank, world_size):
             output = final_layer.module(updated_features[:batch.batch_size])
             output = F.log_softmax(output, dim=1)
             print(f'output.shape: {output.shape}')
-            
+
             acc = accuracy(output, batch.y[:batch.batch_size])
             print(f"Training accuracy: {acc * 100:.2f}%")  # Print accuracy
             epoch_acc += acc
@@ -359,23 +328,29 @@ def train(rank, world_size):
                 print("validation computation start")
                 new_adj_for_val = adj.clone()
                 node_features_for_val = features.clone()
+
                 for layer in range(num_model_layers):
                     print(f"validation layer: {layer}")
-                    for node_idx_for_val in range(num_nodes):
-                        node_feature_for_val = node_features_for_val[node_idx_for_val].unsqueeze(0)
-                        neighbor_indices_for_val = adj[node_idx_for_val].nonzero().view(-1)
-                        neighbor_features_for_val = node_features_for_val[neighbor_indices_for_val]
-                        
-                        adj_probs_for_val, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(node_feature_for_val, neighbor_features_for_val)
-                        for i, neighbor_idx_for_val in enumerate(neighbor_indices_for_val):
-                            new_adj_for_val[node_idx_for_val, neighbor_idx_for_val] = new_neighbors_for_val[i]
-                    edge_index_for_val, edge_weight_for_val = dense_to_sparse(new_adj_for_val)
+
+                    # 全ノードに対して新しい隣接行列を一括で生成
+                    _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features_for_val)
+                    
+                    # 新しい隣接行列を更新
+                    new_adj_for_val = torch.zeros((num_nodes, num_nodes), device=device)
+                    new_adj_for_val[edge_index[0], edge_index[1]] = new_neighbors_for_val.float()
+
+                    print(f"new_adj.sum: {new_adj_for_val.sum().item()}")
+
+                    # GCNレイヤーのフォワードパスを通して特徴量を更新
+                    edge_index_for_val, _ = dense_to_sparse(new_adj_for_val)
                     node_features_for_val = gcn_models[layer].module(node_features_for_val, edge_index_for_val)
-                
+
                 val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
                 val_loss = F.nll_loss(val_output, labels[idx_val])
                 val_acc = accuracy(val_output, labels[idx_val])
+                print(f"Validation Loss: {val_loss.item()}, Validation Accuracy: {val_acc.item()}")
+
 
              # or val_acc.item() > best_acc
             
@@ -432,50 +407,50 @@ def train(rank, world_size):
     load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
     
-    # プロットする関数を定義
-    def plot_metrics(epoch_acc_list, val_acc_list, val_loss_list, output_dir='plots'):
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    # # プロットする関数を定義
+    # def plot_metrics(epoch_acc_list, val_acc_list, val_loss_list, output_dir='plots'):
+    #     if not os.path.exists(output_dir):
+    #         os.makedirs(output_dir)
         
-        plt.figure(figsize=(12, 5))
+    #     plt.figure(figsize=(12, 5))
     
-        # ACCのプロット
-        plt.subplot(1, 2, 1)
-        plt.plot(epoch_acc_list, label='Training Accuracy')
-        plt.plot(val_acc_list, label='Validation Accuracy')
-        plt.xlabel('Epoch')
-        plt.ylabel('Accuracy')
-        plt.title('Training and Validation Accuracy')
-        plt.legend()
+    #     # ACCのプロット
+    #     plt.subplot(1, 2, 1)
+    #     plt.plot(epoch_acc_list, label='Training Accuracy')
+    #     plt.plot(val_acc_list, label='Validation Accuracy')
+    #     plt.xlabel('Epoch')
+    #     plt.ylabel('Accuracy')
+    #     plt.title('Training and Validation Accuracy')
+    #     plt.legend()
     
-        # Lossのプロット
-        plt.subplot(1, 2, 2)
-        plt.plot(val_loss_list, label='Validation Loss')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.title('Validation Loss')
-        plt.legend()
+    #     # Lossのプロット
+    #     plt.subplot(1, 2, 2)
+    #     plt.plot(val_loss_list, label='Validation Loss')
+    #     plt.xlabel('Epoch')
+    #     plt.ylabel('Loss')
+    #     plt.title('Validation Loss')
+    #     plt.legend()
     
-        plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, 'training_validation_metrics.png'))
-        plt.close()
+    #     plt.tight_layout()
+    #     plt.savefig(os.path.join(output_dir, 'training_validation_metrics.png'))
+    #     plt.close()
 
-    # プロットを呼び出す
-    if rank == 0:
-        plot_metrics(epoch_acc_list, val_acc_list, val_loss_list)
+    # # プロットを呼び出す
+    # if rank == 0:
+    #     plot_metrics(epoch_acc_list, val_acc_list, val_loss_list)
 
     # Test phase
     print("Starting testing phase...")
 
     # Load the best checkpoint
-    best_checkpoint = torch.load(checkpoint_path, map_location={'cuda:0': 'cuda:%d' % rank})
-    for i, adj_generator in enumerate(adj_generators):
-        adj_generator.module.load_state_dict(best_checkpoint['state_dict']['adj_generators'][i])
-    for i, gcn_model in enumerate(gcn_models):
-        gcn_model.module.load_state_dict(best_checkpoint['state_dict']['gcn_models'][i])
-    for i, v_network in enumerate(v_networks):
-        v_network.module.load_state_dict(best_checkpoint['state_dict']['v_networks'][i])
-    final_layer.module.load_state_dict(best_checkpoint['state_dict']['final_layer'])
+    # best_checkpoint = torch.load(checkpoint_path, map_location={'cuda:0': 'cuda:%d' % rank})
+    # for i, adj_generator in enumerate(adj_generators):
+    #     adj_generator.module.load_state_dict(best_checkpoint['state_dict']['adj_generators'][i])
+    # for i, gcn_model in enumerate(gcn_models):
+    #     gcn_model.module.load_state_dict(best_checkpoint['state_dict']['gcn_models'][i])
+    # for i, v_network in enumerate(v_networks):
+    #     v_network.module.load_state_dict(best_checkpoint['state_dict']['v_networks'][i])
+    # final_layer.module.load_state_dict(best_checkpoint['state_dict']['final_layer'])
     
     for adj_generator in adj_generators:
         adj_generator.eval()
@@ -487,29 +462,27 @@ def train(rank, world_size):
 
     with torch.no_grad():
         node_features = features.clone()
+        new_adj = adj.clone()  # 新しい隣接行列を初期化
+        
         for layer in range(num_model_layers):
             print(f"\nTesting Layer {layer + 1}/{num_model_layers}")
 
-            new_adj = adj.clone()  # 新しい隣接行列を初期化
+            # 全ノードに対して新しい隣接行列を一括で生成
+            _, new_neighbors = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features)
 
-            for node_idx in range(num_nodes):
-                node_feature = features[node_idx].unsqueeze(0)
-                neighbor_indices = adj[node_idx].nonzero().view(-1)  # Get the indices of neighbors
-                neighbor_features = node_features[neighbor_indices]
-                
-                adj_probs, new_neighbors = adj_generators[layer].module.generate_new_neighbors(node_feature, neighbor_features)
+            # 新しい隣接行列を更新
+            new_adj = torch.zeros((num_nodes, num_nodes), device=device)
+            new_adj[edge_index[0], edge_index[1]] = new_neighbors.float()
 
-                for i, neighbor_idx in enumerate(neighbor_indices):
-                    new_adj[node_idx, neighbor_idx] = new_neighbors[i]
-
-            print(f"new_adj.sum: {new_adj.sum()}")
-            edge_index, edge_weight = dense_to_sparse(new_adj)
-            node_features = gcn_models[layer].module(node_features, edge_index)
+            print(f"new_adj.sum: {new_adj.sum().item()}")
+            new_edge_index, _ = dense_to_sparse(new_adj)
+            node_features = gcn_models[layer].module(node_features, new_edge_index)
 
         output = final_layer.module(node_features[idx_test])
         output = F.log_softmax(output, dim=1)
         test_acc = accuracy(output, labels[idx_test])
         print(f"Test accuracy: {test_acc * 100:.2f}%")
+
 
         if rank == 0:
             with open(log_file_path, 'a') as f:
