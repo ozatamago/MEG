@@ -328,12 +328,13 @@ def train(rank, world_size):
                 print("validation computation start")
                 new_adj_for_val = adj.clone()
                 node_features_for_val = features.clone()
+                edge_index = data.edge_index.clone()
 
                 for layer in range(num_model_layers):
                     print(f"validation layer: {layer}")
 
                     # 全ノードに対して新しい隣接行列を一括で生成
-                    _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(data.edge_index, node_features_for_val)
+                    _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features_for_val)
                     
                     # 新しい隣接行列を更新
                     new_adj_for_val = torch.zeros((num_nodes, num_nodes), device=device)
@@ -360,22 +361,22 @@ def train(rank, world_size):
                 best_loss = val_loss.item()
                 best_acc = val_acc
                 save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)
-                save_checkpoint({
-                    'epoch': epoch,
-                    'state_dict': {
-                        'adj_generators': [adj_generator.module.state_dict() for adj_generator in adj_generators],
-                        'gcn_models': [gcn_model.module.state_dict() for gcn_model in gcn_models],
-                        'v_networks': [v_network.module.state_dict() for v_network in v_networks],
-                        'final_layer': final_layer.module.state_dict()
-                    },
-                    'optimizer': {
-                        'optimizer_adj': [opt.state_dict() for opt in optimizer_adj],
-                        'optimizer_gcn': [opt.state_dict() for opt in optimizer_gcn],
-                        'optimizer_v': [opt.state_dict() for opt in optimizer_v],
-                        'optimizer_final_layer': optimizer_final_layer.state_dict()
-                    },
-                    'best_loss': best_loss
-                })       
+                # save_checkpoint({
+                #     'epoch': epoch,
+                #     'state_dict': {
+                #         'adj_generators': [adj_generator.module.state_dict() for adj_generator in adj_generators],
+                #         'gcn_models': [gcn_model.module.state_dict() for gcn_model in gcn_models],
+                #         'v_networks': [v_network.module.state_dict() for v_network in v_networks],
+                #         'final_layer': final_layer.module.state_dict()
+                #     },
+                #     'optimizer': {
+                #         'optimizer_adj': [opt.state_dict() for opt in optimizer_adj],
+                #         'optimizer_gcn': [opt.state_dict() for opt in optimizer_gcn],
+                #         'optimizer_v': [opt.state_dict() for opt in optimizer_v],
+                #         'optimizer_final_layer': optimizer_final_layer.state_dict()
+                #     },
+                #     'best_loss': best_loss
+                # })       
 
             end_time = time.time()
             epoch_time = end_time - start_time
@@ -463,16 +464,16 @@ def train(rank, world_size):
     with torch.no_grad():
         node_features = features.clone()
         new_adj = adj.clone()  # 新しい隣接行列を初期化
-        
+        edge_index = data.edge_index.clone()
         for layer in range(num_model_layers):
             print(f"\nTesting Layer {layer + 1}/{num_model_layers}")
 
             # 全ノードに対して新しい隣接行列を一括で生成
-            _, new_neighbors = adj_generators[layer].module.generate_new_neighbors(data.edge_index, node_features)
+            _, new_neighbors = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features)
 
             # 新しい隣接行列を更新
             new_adj = torch.zeros((num_nodes, num_nodes), device=device)
-            new_adj[data.edge_index[0], data.edge_index[1]] = new_neighbors.float()
+            new_adj[edge_index[0], edge_index[1]] = new_neighbors.float()
 
             print(f"new_adj.sum: {new_adj.sum().item()}")
             new_edge_index, _ = dense_to_sparse(new_adj)
