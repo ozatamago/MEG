@@ -205,7 +205,7 @@ def train(rank, world_size):
                 adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
                 
                 # ログ確率の計算
-                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits + 1e-9, new_neighbors.float())
+                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 50 + 1e-9, new_neighbors.float())
                 log_probs_layers.append(log_probs)
                 print(f"log_probs_layers: {log_probs_layers}")
 
