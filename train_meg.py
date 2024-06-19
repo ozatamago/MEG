@@ -84,7 +84,7 @@ def train(rank, world_size):
     train_loader = NeighborLoader(
         data,
         num_neighbors=num_neighbors,
-        batch_size=140,
+        batch_size=35,
         input_nodes=data.train_mask,
         shuffle=True,
     )
