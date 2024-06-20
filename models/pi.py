@@ -15,7 +15,7 @@ class AdjacencyGenerator(nn.Module):
             nn.LayerNorm(d_model).to(device)
             for _ in range(num_layers)
         ])
-        self.device = device
+        self.dropout = nn.Dropout(dropout).to(device)  # Dropout layer
 
         self.weight_layer = nn.Linear(d_model, 2 * d_model).to(device)
         self.weight_layer2 = nn.Linear(2 * d_model, 2 * d_model).to(device)
@@ -24,11 +24,6 @@ class AdjacencyGenerator(nn.Module):
 
         self.final_norm = nn.LayerNorm(d_model).to(device)
 
-    def get_attention(self, edge_index, x_i, x_j, num_nodes):
-        alpha = (x_i * x_j).sum(-1)
-        alpha = softmax(alpha, edge_index[1], num_nodes=num_nodes)
-        return alpha
-
     def forward(self, edge_index, x):
         num_nodes = x.size(0)
         x_i = x[edge_index[0]]
@@ -36,9 +31,8 @@ class AdjacencyGenerator(nn.Module):
         query, key, value = x_i, x_j, x_j
 
         for i in range(self.num_layers):
-            attn_output_weights = self.get_attention(edge_index, x_i, x_j, num_nodes)
-            attn_output_weights = attn_output_weights.unsqueeze(0).repeat(attn_output_weights.size(0), 1)  # Make it 2D (query_length, key_length)
-            attn_output, _ = self.cross_attentions[i](query, key, value, attn_mask=attn_output_weights)
+            attn_output, _ = self.cross_attentions[i](query, key, value)
+            attn_output = self.dropout(attn_output)  # Apply Dropout
             attn_output = F.relu(attn_output)  # Apply ReLU activation
             query = x_i + attn_output  # Skip connection with original query
             query = self.norm_layers[i](query)  # Norm
@@ -46,7 +40,9 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
         
         adj_logits = F.linear(adj_logits, self.weight_layer.weight.clone(), self.weight_layer.bias)
+        adj_logits = self.dropout(adj_logits)  # Apply Dropout
         adj_logits = F.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
+        adj_logits = self.dropout(adj_logits)  # Apply Dropout
         adj_logits = F.linear(adj_logits, self.weight_layer3.weight.clone(), self.weight_layer3.bias)
         
         adj_logits = adj_logits + query
@@ -58,7 +54,7 @@ class AdjacencyGenerator(nn.Module):
 
     def generate_new_neighbors(self, edge_index, x):
         adj_logits = self.forward(edge_index, x)
-        adj_probs = torch.sigmoid(adj_logits / 10).to(self.device)  # Reduce to (num_neighbors + 1)
+        adj_probs = torch.sigmoid(adj_logits / 100).to(self.device)  # Reduce to (num_neighbors + 1)
         new_edges = torch.bernoulli(adj_probs).to(self.device)  # Sample new neighbors
 
         return adj_logits, new_edges
@@ -71,7 +67,7 @@ class AdjacencyGenerator(nn.Module):
 # edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long).to(device)
 # x = torch.tensor([[-1.0], [1.0], [2.0]], dtype=torch.float).to(device)
 
-# model = AdjacencyGenerator(d_model=1, num_heads=1, num_layers=2, device=device)
+# model = AdjacencyGenerator(d_model=1, num_heads=1, num_layers=2, device=device, dropout=0.2)
 # adj_logits, new_edges = model.generate_new_neighbors(edge_index, x)
 
 # print("Adjacency logits:", adj_logits)
