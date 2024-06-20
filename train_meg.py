@@ -136,7 +136,7 @@ def train(rank, world_size):
     v_networks = [DDP(v_network, device_ids=[rank], broadcast_buffers=False) for v_network in v_networks]
 
     # Ensure the weight files are present
-    load_all_weights([adj_generator], gcn_models, v_networks, final_layer)
+    load_all_weights(adj_generator, gcn_models, v_networks, final_layer)
 
     best_acc = 0
 
@@ -356,7 +356,7 @@ def train(rank, world_size):
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
-                save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)
+                save_all_weights(adj_generator, gcn_models, v_networks, final_layer, best_loss)
                 # save_checkpoint({
                 #     'epoch': epoch,
                 #     'state_dict': {
@@ -406,7 +406,7 @@ def train(rank, world_size):
     
     print("Training finished and model weights saved!")
 
-    load_all_weights([adj_generator], gcn_models, v_networks, final_layer)
+    load_all_weights(adj_generator, gcn_models, v_networks, final_layer)
 
     
     # # プロットする関数を定義
