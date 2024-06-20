@@ -152,6 +152,7 @@ def train(rank, world_size):
         with open(log_file_path, 'w') as f:
             f.write("Training Log\n")
     
+    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
     best_loss = load_best_loss()
 
     # 配列を初期化
@@ -161,7 +162,6 @@ def train(rank, world_size):
     
     # Training loop
     for epoch in range(epochs):
-        load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
         dist.barrier()  # 各エポックの開始時に同期
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
@@ -376,7 +376,9 @@ def train(rank, world_size):
                 #     },
                 #     'best_loss': best_loss
                 # })       
-
+            else:
+                bad_counter+=1
+            
             end_time = time.time()
             epoch_time = end_time - start_time
 
@@ -401,6 +403,9 @@ def train(rank, world_size):
                 f.write(f"Validation loss: {val_loss.item()}\n")
                 f.write(f"Best loss: {best_loss}\n")
                 f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
+                if bad_counter == patience:
+                    f.write("Optimization Finished!")
+                    break
     
     print("Training finished and model weights saved!")
 
