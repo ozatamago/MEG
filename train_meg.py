@@ -279,6 +279,7 @@ def train(rank, world_size):
             optimizer_final_layer.step()
 
             count = 0
+            log_probs_with_adv_sum = 0  # 合計ログ確率とアドバンテージの積を計算するための変数
             # 各層の勾配計算とアドバンテージの適用
             for count in range(num_model_layers):
                 log_probs_with_adv = log_probs_layers[count] * advantages_layers[count]
