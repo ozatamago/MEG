@@ -169,9 +169,9 @@ def train(rank, world_size):
         epoch_acc = 0
 
         print(f"\nEpoch {epoch + 1}/{epochs}")
-        for adj_generator in adj_generators:
-            adj_generator.to(rank)
-            adj_generator.train()
+        
+        adj_generator.to(rank)
+        adj_generator.train()
         final_layer.to(rank)
         final_layer.train()
         for gcn_model in gcn_models:
