@@ -7,6 +7,8 @@ class AdjacencyGenerator(nn.Module):
     def __init__(self, d_model, num_heads, num_layers, device, dropout=0.1):
         super(AdjacencyGenerator, self).__init__()
         self.num_layers = num_layers
+        self.device = device  # デバイスを設定
+        
         self.cross_attentions = nn.ModuleList([
             nn.MultiheadAttention(d_model, num_heads, dropout=dropout).to(device) 
             for _ in range(num_layers)
