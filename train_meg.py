@@ -203,7 +203,7 @@ def train(rank, world_size):
                 # ノードをサンプリング
                 sampled_indices = sample_nodes(updated_features, num_of_samples=140)
 
-                adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
+                adj_logits, new_neighbors = adj_generator.module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
                 
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 10 + 1e-9, new_neighbors.float())
