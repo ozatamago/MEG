@@ -45,9 +45,8 @@ def save_model_weights(model, filename):
     torch.save(model.state_dict(), filepath)
     print(f"Saved model weights to {filepath}")
 
-def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss):
-    for i, adj_generator in enumerate(adj_generators):
-        save_model_weights(adj_generator, f'adj_generator_{i}.pth')    
+def save_all_weights(adj_generator, gcn_models, v_networks, final_layer, best_loss):
+    save_model_weights(adj_generator, f'adj_generator.pth')    
     for i, gcn_model in enumerate(gcn_models):
         save_model_weights(gcn_model, f'gcn_model_weights_{i}.pth')
     for i, v_network in enumerate(v_networks):
