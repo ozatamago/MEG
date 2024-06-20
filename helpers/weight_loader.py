@@ -10,8 +10,10 @@ def load_model_weights(model, filename):
     filepath = os.path.join(weights_dir, filename)
     if os.path.exists(filepath):
         try:
-            model.load_state_dict(torch.load(filepath))
-        except (RuntimeError, OSError) as e:
+            state_dict = torch.load(filepath, map_location=torch.device('cpu'))
+            model.load_state_dict(state_dict)
+            print(f"Loaded {filename}")
+        except (RuntimeError, OSError, EOFError) as e:
             print(f"Failed to load {filepath}: {e}")
             os.remove(filepath)  # Remove corrupted file
             raise FileNotFoundError(f"Corrupted file removed: '{filepath}'")
@@ -22,10 +24,8 @@ def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
     def try_load(model, filename):
         try:
             load_model_weights(model, filename)
-            print(f"Loaded {filename}")
-        except FileNotFoundError as e:
-            print(f"{e}")
-            # 新しいモデルを初期化して保存
+        except FileNotFoundError:
+            print(f"{filename} not found or corrupted. Initializing model.")
             save_model_weights(model, filename)
             print(f"Initialized and saved new model: {filename}")
 
@@ -44,6 +44,7 @@ def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
 def save_model_weights(model, filename):
     filepath = os.path.join(weights_dir, filename)
     torch.save(model.state_dict(), filepath)
+    print(f"Saved model weights to {filepath}")
 
 def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss):
     for i, adj_generator in enumerate(adj_generators):
@@ -68,11 +69,3 @@ def load_best_loss(directory='weights'):
         print(f"No best_loss file found. Using default value: {best_loss}")
     return best_loss
 
-# # モデルの初期化
-# adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, num_layers, device, dropout) for _ in range(num_layers)]
-# gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
-# final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
-# v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
-
-# # 初期化されたモデルの保存
-# save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss=1000)
