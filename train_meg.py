@@ -154,6 +154,8 @@ def train(rank, world_size):
     
     load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
     best_loss = load_best_loss()
+    bad_counter = 0
+    patience = 100
 
     # 配列を初期化
     epoch_acc_list = []
