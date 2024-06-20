@@ -358,7 +358,6 @@ def train(rank, world_size):
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
-                bad_counter = 0
                 save_all_weights(adj_generator, gcn_models, v_networks, final_layer, best_loss)
                 # save_checkpoint({
                 #     'epoch': epoch,
@@ -376,8 +375,6 @@ def train(rank, world_size):
                 #     },
                 #     'best_loss': best_loss
                 # })       
-            else:
-                bad_counter+=1
             
             end_time = time.time()
             epoch_time = end_time - start_time
