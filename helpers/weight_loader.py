@@ -48,12 +48,12 @@ def save_model_weights(model, filename):
 
 def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss):
     for i, adj_generator in enumerate(adj_generators):
-        save_model_weights(adj_generator, f'weights/adj_generator_{i}.pth')    
+        save_model_weights(adj_generator, f'adj_generator_{i}.pth')    
     for i, gcn_model in enumerate(gcn_models):
-        save_model_weights(gcn_model, f'weights/gcn_model_weights_{i}.pth')
+        save_model_weights(gcn_model, f'gcn_model_weights_{i}.pth')
     for i, v_network in enumerate(v_networks):
-        save_model_weights(v_network, f'weights/v_network_weights_{i}.pth')
-    save_model_weights(final_layer, 'weights/final_layer_weights.pth')
+        save_model_weights(v_network, f'v_network_weights_{i}.pth')
+    save_model_weights(final_layer, 'final_layer_weights.pth')
     best_loss_filepath = os.path.join(weights_dir, 'best_loss.txt')
     with open(best_loss_filepath, 'w') as f:
         f.write(str(best_loss.item() if isinstance(best_loss, torch.Tensor) else best_loss))
