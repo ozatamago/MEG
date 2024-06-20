@@ -20,7 +20,7 @@ def load_model_weights(model, filename):
     else:
         raise FileNotFoundError(f"No such file: '{filepath}'")
 
-def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
+def load_all_weights(adj_generator, gcn_models, v_networks, final_layer):
     def try_load(model, filename):
         try:
             load_model_weights(model, filename)
@@ -29,9 +29,8 @@ def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
             save_model_weights(model, filename)
             print(f"Initialized and saved new model: {filename}")
 
-    for i, adj_generator_model in enumerate(adj_generators):
-        filename = f'adj_generator_{i}.pth'
-        try_load(adj_generator_model, filename)
+        filename = f'adj_generator.pth'
+        try_load(adj_generator, filename)
     for i, gcn_model in enumerate(gcn_models):
         filename = f'gcn_model_weights_{i}.pth'
         try_load(gcn_model, filename)
