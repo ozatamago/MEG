@@ -7,17 +7,22 @@ class AdjacencyGenerator(nn.Module):
     def __init__(self, d_model, num_heads, num_layers, device, dropout=0.1):
         super(AdjacencyGenerator, self).__init__()
         self.num_layers = num_layers
-        self.device = device  # デバイスを設定
+        self.device = device
         
-        self.cross_attentions = nn.ModuleList([
-            nn.MultiheadAttention(d_model, num_heads, dropout=dropout).to(device) 
-            for _ in range(num_layers)
+        # Define layers
+        self.query_layers = nn.ModuleList([
+            nn.Linear(d_model, d_model).to(device) for _ in range(num_layers)
+        ])
+        self.key_layers = nn.ModuleList([
+            nn.Linear(d_model, d_model).to(device) for _ in range(num_layers)
+        ])
+        self.value_layers = nn.ModuleList([
+            nn.Linear(d_model, d_model).to(device) for _ in range(num_layers)
         ])
         self.norm_layers = nn.ModuleList([
-            nn.LayerNorm(d_model).to(device)
-            for _ in range(num_layers)
+            nn.LayerNorm(d_model).to(device) for _ in range(num_layers)
         ])
-        self.dropout = nn.Dropout(dropout).to(device)  # Dropout layer
+        self.dropout = nn.Dropout(dropout).to(device)
 
         self.weight_layer = nn.Linear(d_model, 2 * d_model).to(device)
         self.weight_layer2 = nn.Linear(2 * d_model, 2 * d_model).to(device)
@@ -26,17 +31,28 @@ class AdjacencyGenerator(nn.Module):
 
         self.final_norm = nn.LayerNorm(d_model).to(device)
 
+    def get_attention(self, edge_index, query, key, num_nodes):
+        alpha = (query * key).sum(-1)
+        alpha = softmax(alpha, edge_index[1], num_nodes=num_nodes)
+        return alpha
+
     def forward(self, edge_index, x):
         num_nodes = x.size(0)
         x_i = x[edge_index[0]]
         x_j = x[edge_index[1]]
-        query, key, value = x_i, x_j, x_j
 
         for i in range(self.num_layers):
-            attn_output, _ = self.cross_attentions[i](query, key, value)
+            query = self.query_layers[i](x_i)
+            key = self.key_layers[i](x_j)
+            value = self.value_layers[i](x_j)
+
+            attn_output_weights = self.get_attention(edge_index, query, key, num_nodes)
+            attn_output_weights = attn_output_weights.unsqueeze(1)  # Make it 2D (query_length, 1)
+            attn_output = attn_output_weights * value
             attn_output = self.dropout(attn_output)  # Apply Dropout
             attn_output = F.relu(attn_output)  # Apply ReLU activation
-            query = x_i + attn_output  # Skip connection with original query
+
+            query = x_j + attn_output  # Skip connection with original query
             query = self.norm_layers[i](query)  # Norm
 
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
