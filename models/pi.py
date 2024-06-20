@@ -19,7 +19,13 @@ class AdjacencyGenerator(nn.Module):
         self.value_layers = nn.ModuleList([
             nn.Linear(d_model, d_model).to(device) for _ in range(num_layers)
         ])
-        self.norm_layers = nn.ModuleList([
+        self.ff_layers = nn.ModuleList([
+            nn.Linear(d_model, d_model).to(device) for _ in range(num_layers)
+        ])
+        self.norm_layers_a = nn.ModuleList([
+            nn.LayerNorm(d_model).to(device) for _ in range(num_layers)
+        ])
+        self.norm_layers_f = nn.ModuleList([
             nn.LayerNorm(d_model).to(device) for _ in range(num_layers)
         ])
         self.dropout = nn.Dropout(dropout).to(device)
@@ -38,22 +44,26 @@ class AdjacencyGenerator(nn.Module):
 
     def forward(self, edge_index, x):
         num_nodes = x.size(0)
-        x_i = x[edge_index[0]]
-        x_j = x[edge_index[1]]
+        x_i = x[edge_index[1]]
+        x_j = x[edge_index[0]]
 
         for i in range(self.num_layers):
             query = self.query_layers[i](x_i)
             key = self.key_layers[i](x_j)
             value = self.value_layers[i](x_j)
 
-            attn_output_weights = self.get_attention(edge_index, query, key, num_nodes)
-            attn_output_weights = attn_output_weights.unsqueeze(1)  # Make it 2D (query_length, 1)
-            attn_output = attn_output_weights * value
+            attn_output_weights = self.get_attention(edge_index, query, key, num_nodes).unsqueeze(1)
+            # attn_output_weights = attn_output_weights.unsqueeze(1)  # Make it 2D (query_length, 1)
+            attn_output = query + attn_output_weights * value
             attn_output = self.dropout(attn_output)  # Apply Dropout
             attn_output = F.relu(attn_output)  # Apply ReLU activation
-
-            query = x_j + attn_output  # Skip connection with original query
-            query = self.norm_layers[i](query)  # Norm
+            query = self.norm_layers_a[i](query)  # Norm
+            
+            query = self.ff_layers[i](query)
+            query = self.dropout(query)  # Apply Dropout
+            query = F.relu(query)  # Apply ReLU activation
+            query = self.norm_layers_f[i](query)  # Norm
+            
 
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
         
