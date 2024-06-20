@@ -29,7 +29,7 @@ def load_all_weights(adj_generator, gcn_models, v_networks, final_layer):
             save_model_weights(model, filename)
             print(f"Initialized and saved new model: {filename}")
 
-        filename = f'adj_generator.pth'
+    filename = f'adj_generator.pth'
     try_load(adj_generator, filename)
     for i, gcn_model in enumerate(gcn_models):
         filename = f'gcn_model_weights_{i}.pth'
