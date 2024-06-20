@@ -168,7 +168,8 @@ def train(rank, world_size):
         dist.barrier()  # 各エポックの開始時に同期
         start_time = time.time()  # Start the timer at the beginning of the epoch
         epoch_acc = 0
-
+        neighbors_sum_val = 0
+        
         print(f"\nEpoch {epoch + 1}/{epochs}")
         
         adj_generator.to(rank)
@@ -233,6 +234,7 @@ def train(rank, world_size):
                 sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
                 print(f"sum_new_neighbors: {sum_new_neighbors}")
                 log_sum = 1.0 / torch.exp(torch.tensor(sum_new_neighbors / 2000.0, device=device))  # sum_new_neighborsをtensorに変換
+                
                 reward = log_sum.item()
 
                 rewards_for_adj.append(reward)
@@ -338,7 +340,9 @@ def train(rank, world_size):
                     new_adj_for_val = torch.zeros((num_nodes, num_nodes), device=device)
                     new_adj_for_val[edge_index[0], edge_index[1]] = new_neighbors_for_val.float()
 
-                    print(f"new_adj.sum: {new_adj_for_val.sum().item()}")
+                    new_adj_sum = new_adj_for_val.sum().item()
+                    print(f"new_adj.sum: {new_adj_sum}")
+                    neighbors_sum_val += new_adj_sum
 
                     # GCNレイヤーのフォワードパスを通して特徴量を更新
                     edge_index_for_val, _ = dense_to_sparse(new_adj_for_val)
@@ -391,6 +395,7 @@ def train(rank, world_size):
             print(f"Validation loss: {val_loss.item()}")
             print(f"best loss: {best_loss}")
             print(f"Epoch time: {epoch_time}")
+            print(f"neighbors_val.sum: {neighbors_sum_val}")
         
             with open(log_file_path, 'a') as f:
                 f.write(f"\nEpoch {epoch + 1}/{epochs}\n")
@@ -399,10 +404,8 @@ def train(rank, world_size):
                 f.write(f"Best  accuracy: {best_acc}\n")
                 f.write(f"Validation loss: {val_loss.item()}\n")
                 f.write(f"Best loss: {best_loss}\n")
+                f.write(f"neighbors_val.sum: {neighbors_sum_val}\n")
                 f.write(f"Epoch time: {epoch_time:.2f} seconds\n")
-                if bad_counter == patience:
-                    f.write("Optimization Finished!")
-                    break
     
     print("Training finished and model weights saved!")
 
