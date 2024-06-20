@@ -152,7 +152,7 @@ def train(rank, world_size):
         with open(log_file_path, 'w') as f:
             f.write("Training Log\n")
     
-    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
+    # load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
     best_loss = load_best_loss()
     bad_counter = 0
     patience = 100
