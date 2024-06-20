@@ -24,8 +24,8 @@ class AdjacencyGenerator(nn.Module):
         ])
         self.dropout = nn.Dropout(dropout).to(device)
 
-        self.weight_layer = nn.Linear(d_model, 2 * d_model).to(device)
-        self.weight_layer2 = nn.Linear(2 * d_model, 2 * d_model).to(device)
+        self.weight_layer = nn.Linear(d_model, 4 * d_model).to(device)
+        self.weight_layer2 = nn.Linear(4 * d_model, 2 * d_model).to(device)
         self.weight_layer3 = nn.Linear(2 * d_model, d_model).to(device)
         self.weight_vector = nn.Linear(d_model, 1).to(device)
 
@@ -72,7 +72,7 @@ class AdjacencyGenerator(nn.Module):
 
     def generate_new_neighbors(self, edge_index, x):
         adj_logits = self.forward(edge_index, x)
-        adj_probs = torch.sigmoid(adj_logits / 100).to(self.device)  # Reduce to (num_neighbors + 1)
+        adj_probs = torch.sigmoid(adj_logits / 50).to(self.device)  # Reduce to (num_neighbors + 1)
         new_edges = torch.bernoulli(adj_probs).to(self.device)  # Sample new neighbors
 
         return adj_logits, new_edges
