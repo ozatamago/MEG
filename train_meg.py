@@ -212,16 +212,16 @@ def train(rank, world_size):
                     ones_indices = (new_neighbors == 1).nonzero(as_tuple=True)[0]
                     zeros_indices = (new_neighbors == 0).nonzero(as_tuple=True)[0]
 
-                    num_flip_to_1 = min(50, len(zeros_indices))
+                    num_flip_to_1 = min(100, len(zeros_indices))
                     num_flip_to_0 = min(100, len(ones_indices))
 
                     if num_flip_to_1 > 0:
                         flip_to_1_indices = zeros_indices[torch.randint(len(zeros_indices), (num_flip_to_1,))]
                         new_neighbors[flip_to_1_indices] = 1
 
-                    # if num_flip_to_0 > 0:
-                    #     flip_to_0_indices = ones_indices[torch.randint(len(ones_indices), (num_flip_to_0,))]
-                    #     new_neighbors[flip_to_0_indices] = 0
+                    if num_flip_to_0 > 0:
+                        flip_to_0_indices = ones_indices[torch.randint(len(ones_indices), (num_flip_to_0,))]
+                        new_neighbors[flip_to_0_indices] = 0
                         
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits + 1e-9, new_neighbors.float())
