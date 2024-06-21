@@ -57,8 +57,8 @@ class AdjacencyGenerator(nn.Module):
             attn_output_weights = self.get_attention(edge_index, query, key, num_nodes).unsqueeze(1)
             # attn_output_weights = attn_output_weights.unsqueeze(1)  # Make it 2D (query_length, 1)
             attn_output = query + attn_output_weights * value
-            attn_output = self.dropout(attn_output)  # Apply Dropout
-            attn_output = F.relu(attn_output)  # Apply ReLU activation
+            # attn_output = self.dropout(attn_output)  # Apply Dropout
+            # attn_output = F.relu(attn_output)  # Apply ReLU activation
             query = self.norm_layers_a[i](query)  # Norm
             
             query = self.ff_layers[i](query)
@@ -70,11 +70,11 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = attn_output.squeeze(0)  # (1, d_model) -> (d_model)
         
         adj_logits = F.linear(adj_logits, self.weight_layer.weight.clone(), self.weight_layer.bias)
-        adj_logits = F.relu(adj_logits)
+        # adj_logits = F.relu(adj_logits)
         adj_logits = F.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
-        adj_logits = F.relu(adj_logits)
+        # adj_logits = F.relu(adj_logits)
         adj_logits = F.linear(adj_logits, self.weight_layer3.weight.clone(), self.weight_layer3.bias)
-        adj_logits = F.relu(adj_logits)
+        # adj_logits = F.relu(adj_logits)
         # adj_logits = F.linear(adj_logits, self.weight_layer4.weight.clone(), self.weight_layer4.bias)
         # adj_logits = F.relu(adj_logits)
         adj_logits = F.linear(adj_logits, self.weight_layer5.weight.clone(), self.weight_layer5.bias)
