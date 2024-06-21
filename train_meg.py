@@ -206,7 +206,23 @@ def train(rank, world_size):
                 sampled_indices = sample_nodes(updated_features, num_of_samples=140)
 
                 adj_logits, new_neighbors = adj_generator.module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
-                
+
+                num_edges = new_neighbors.size(0)
+                if num_edges > 0:
+                    ones_indices = (new_neighbors == 1).nonzero(as_tuple=True)[0]
+                    zeros_indices = (new_neighbors == 0).nonzero(as_tuple=True)[0]
+
+                    num_flip_to_1 = min(100, len(zeros_indices))
+                    num_flip_to_0 = min(100, len(ones_indices))
+
+                    if num_flip_to_1 > 0:
+                        flip_to_1_indices = zeros_indices[torch.randint(len(zeros_indices), (num_flip_to_1,))]
+                        new_neighbors[flip_to_1_indices] = 1
+
+                    if num_flip_to_0 > 0:
+                        flip_to_0_indices = ones_indices[torch.randint(len(ones_indices), (num_flip_to_0,))]
+                        new_neighbors[flip_to_0_indices] = 0
+                        
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits + 1e-9, new_neighbors.float())
                 log_probs_layers.append(log_probs)
