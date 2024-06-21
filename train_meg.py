@@ -207,6 +207,8 @@ def train(rank, world_size):
 
                 adj_logits, new_neighbors = adj_generator.module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
 
+                print(f"new_adj_probs: {adj_logits / 100}")
+
                 num_edges = new_neighbors.size(0)
                 if num_edges > 0:
                     ones_indices = (new_neighbors == 1).nonzero(as_tuple=True)[0]
