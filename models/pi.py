@@ -91,6 +91,23 @@ class AdjacencyGenerator(nn.Module):
         adj_probs = torch.sigmoid(adj_logits / 100).to(self.device)  # Reduce to (num_neighbors + 1)
         new_edges = torch.bernoulli(adj_probs).to(self.device)  # Sample new neighbors
 
+        num_edges = new_edges.size(0)
+        if num_edges > 0:
+            ones_indices = (new_edges == 1).nonzero(as_tuple=True)[0]
+            zeros_indices = (new_edges == 0).nonzero(as_tuple=True)[0]
+                
+            num_flip_to_1 = min(100, len(zeros_indices))
+            num_flip_to_0 = min(100, len(ones_indices))
+        
+            if num_flip_to_1 > 0:
+                flip_to_1_indices = zeros_indices[torch.randint(len(zeros_indices), (num_flip_to_1,))]
+                new_edges[flip_to_1_indices] = 1
+        
+            if num_flip_to_0 > 0:
+                flip_to_0_indices = ones_indices[torch.randint(len(ones_indices), (num_flip_to_0,))]
+                new_edges[flip_to_0_indices] = 0
+
+
         return adj_logits, new_edges
 
     def extract_new_edges(self, edge_index, new_edges):
