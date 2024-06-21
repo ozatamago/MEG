@@ -215,9 +215,9 @@ def train(rank, world_size):
                     num_flip_to_1 = min(100, len(zeros_indices))
                     num_flip_to_0 = min(100, len(ones_indices))
 
-                    if num_flip_to_1 > 0:
-                        flip_to_1_indices = zeros_indices[torch.randint(len(zeros_indices), (num_flip_to_1,))]
-                        new_neighbors[flip_to_1_indices] = 1
+                    # if num_flip_to_1 > 0:
+                    #     flip_to_1_indices = zeros_indices[torch.randint(len(zeros_indices), (num_flip_to_1,))]
+                    #     new_neighbors[flip_to_1_indices] = 1
 
                     if num_flip_to_0 > 0:
                         flip_to_0_indices = ones_indices[torch.randint(len(ones_indices), (num_flip_to_0,))]
