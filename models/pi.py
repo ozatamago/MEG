@@ -88,24 +88,10 @@ class AdjacencyGenerator(nn.Module):
 
     def generate_new_neighbors(self, edge_index, x):
         adj_logits = self.forward(edge_index, x)
-        adj_probs = torch.sigmoid(adj_logits / 100).to(self.device)  # Reduce to (num_neighbors + 1)
+        adj_probs = torch.sigmoid(adj_logits / 50).to(self.device)  # Reduce to (num_neighbors + 1)
         new_edges = torch.bernoulli(adj_probs).to(self.device)  # Sample new neighbors
 
         return adj_logits, new_edges
 
     def extract_new_edges(self, edge_index, new_edges):
         return edge_index[:, new_edges == 1]
-
-# # Example usage
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long).to(device)
-# x = torch.tensor([[-1.0], [1.0], [2.0]], dtype=torch.float).to(device)
-
-# model = AdjacencyGenerator(d_model=1, num_heads=1, num_layers=2, device=device, dropout=0.2)
-# adj_logits, new_edges = model.generate_new_neighbors(edge_index, x)
-
-# print("Adjacency logits:", adj_logits)
-# print("New edges:", new_edges)
-
-# filtered_edges = model.extract_new_edges(edge_index, new_edges)
-# print("Filtered edges:", filtered_edges)
