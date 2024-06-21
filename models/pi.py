@@ -88,7 +88,7 @@ class AdjacencyGenerator(nn.Module):
 
     def generate_new_neighbors(self, edge_index, x):
         adj_logits = self.forward(edge_index, x)
-        adj_probs = torch.sigmoid(adj_logits / 10).to(self.device)  # Reduce to (num_neighbors + 1)
+        adj_probs = torch.sigmoid(adj_logits / 100).to(self.device)  # Reduce to (num_neighbors + 1)
         new_edges = torch.bernoulli(adj_probs).to(self.device)  # Sample new neighbors
 
         return adj_logits, new_edges
