@@ -220,6 +220,7 @@ class NeighborLoader(NodeLoader):
         directed: bool = True,  # Deprecated.
         **kwargs,
     ):
+        print(f"nem_neighbors: {num_neighbors}")
         if input_time is not None and time_attr is None:
             raise ValueError("Received conflicting 'input_time' and "
                              "'time_attr' arguments: 'input_time' is set "
