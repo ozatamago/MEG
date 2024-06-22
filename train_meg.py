@@ -9,7 +9,7 @@ from torch_geometric.datasets import Planetoid
 from torch_geometric.utils import dense_to_sparse
 from torch.nn.attention import SDPBackend, sdpa_kernel
 import time
-from torch_geometric.loader import NeighborLoader
+from helpers.NeighborLoader import NeighborLoader
 import torch_geometric.transforms as T
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
