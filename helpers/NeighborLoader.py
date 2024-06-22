@@ -7,7 +7,8 @@ from torch_geometric.sampler.base import SubgraphType
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor
 
 
-[docs]class NeighborLoader(NodeLoader):
+[docs]
+class NeighborLoader(NodeLoader):
     r"""A data loader that performs neighbor sampling as introduced in the
     `"Inductive Representation Learning on Large Graphs"
     <https://arxiv.org/abs/1706.02216>`_ paper.
