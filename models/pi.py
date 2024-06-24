@@ -34,7 +34,7 @@ class AdjacencyGenerator(nn.Module):
         # self.weight_layer2 = nn.Linear(4 * d_model, 4 * d_model).to(device)
         # self.weight_layer3 = nn.Linear(4 * d_model, 4 * d_model).to(device)
         # # self.weight_layer4 = nn.Linear(4 * d_model, 4 * d_model).to(device)
-        # self.weight_layer5 = nn.Linear(4 * d_model, d_model).to(device)
+        self.weight_layer5 = nn.Linear(4 * d_model, d_model).to(device)
         self.weight_vector = nn.Linear(d_model, 1).to(device)
 
         self.final_norm = nn.LayerNorm(d_model).to(device)
