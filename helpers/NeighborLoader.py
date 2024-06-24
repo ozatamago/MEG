@@ -2,7 +2,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from torch_geometric.data import Data, FeatureStore, GraphStore, HeteroData
 from torch_geometric.loader.node_loader import NodeLoader
-from torch_geometric.sampler import NeighborSampler
+from helpers.NeighborSampler import NeighborSampler
 from torch_geometric.sampler.base import SubgraphType
 from torch_geometric.typing import EdgeType, InputNodes, OptTensor
 
