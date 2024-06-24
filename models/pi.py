@@ -80,7 +80,7 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = F.linear(adj_logits, self.weight_layer5.weight.clone(), self.weight_layer5.bias)
         
         adj_logits = adj_logits + query
-        # adj_logits = self.final_norm(adj_logits)
+        adj_logits = self.final_norm(adj_logits)
 
         adj_logits = F.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
 
