@@ -205,7 +205,7 @@ def train(rank, world_size):
                 updated_features_for_adj = updated_features.clone().detach()
 
                 # ノードをサンプリング
-                sampled_indices = sample_nodes(updated_features, num_of_samples=140)
+                sampled_indices = sample_nodes(batch.x, num_of_samples=140)
             
                 print(f"updated_features_for_adj: {updated_features_for_adj[sampled_indices]}")
 
