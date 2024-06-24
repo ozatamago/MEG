@@ -206,12 +206,13 @@ def train(rank, world_size):
 
                 # ノードをサンプリング
                 sampled_indices = sample_nodes(updated_features, num_of_samples=140)
-                
-                print(f"adj_logits.shape: {adj_logits.shape}")
-                print(f"sampled_indices: {sampled_indices}")
+            
                 print(f"updated_features_for_adj: {updated_features_for_adj[sampled_indices]}")
 
                 adj_logits, new_neighbors = adj_generator.module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
+
+                print(f"adj_logits.shape: {adj_logits.shape}")
+                print(f"sampled_indices: {sampled_indices}")
 
                 print(f"new_adj_probs: {torch.sigmoid(adj_logits[sampled_indices] / 50)}")
 
