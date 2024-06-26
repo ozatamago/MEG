@@ -143,7 +143,7 @@ def train(rank, world_size):
     # Set up optimizers
     optimizer_gcn = [optim.Adam(gcn_model.parameters(), lr=config['optimizer']['lr_gcn']) for gcn_model in gcn_models]
     optimizer_v = [optim.Adam(v_network.parameters(), lr=config['optimizer']['lr_v']) for v_network in v_networks]
-    optimizer_adj = optim.Adam(adj_generator.parameters(), lr=config['optimizer']['lr_adj'], maximize=True)  # 一つのモデルに対するオプティマイザ
+    optimizer_adj = [optim.Adam(adj_generator.parameters(), lr=config['optimizer']['lr_adj'], maximize=True) for adj_generator in adj_generators]
     optimizer_final_layer = optim.Adam(final_layer.parameters(), lr=config['optimizer']['lr_final_layer'])
 
     # Create a file to log the epoch results
