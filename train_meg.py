@@ -9,7 +9,7 @@ from torch_geometric.datasets import Planetoid
 from torch_geometric.utils import dense_to_sparse
 from torch.nn.attention import SDPBackend, sdpa_kernel
 import time
-from torch_geometric.loader import NeighborLoader
+from helpers.NeighborLoader import NeighborLoader
 import torch_geometric.transforms as T
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
@@ -79,12 +79,12 @@ def train(rank, world_size):
     data = dataset[0].to(device)
 
     # Initialize NeighborLoader
-    num_neighbors = [5] * 10
+    num_neighbors = [5] * num_model_layers
 
     train_loader = NeighborLoader(
         data,
         num_neighbors=num_neighbors,
-        batch_size=140,
+        batch_size=70,
         input_nodes=data.train_mask,
         shuffle=True,
     )
@@ -154,8 +154,6 @@ def train(rank, world_size):
     
     # load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
     best_loss = load_best_loss()
-    bad_counter = 0
-    patience = 100
 
     # 配列を初期化
     epoch_acc_list = []
@@ -172,15 +170,11 @@ def train(rank, world_size):
         
         print(f"\nEpoch {epoch + 1}/{epochs}")
         
-        adj_generator.to(rank)
         adj_generator.train()
-        final_layer.to(rank)
         final_layer.train()
         for gcn_model in gcn_models:
-            gcn_model.to(rank)
             gcn_model.train()
         for v_network in v_networks:
-            v_network.to(rank)
             v_network.train()
 
         # バッチ処理のためのNeighborLoaderの反復処理
@@ -205,11 +199,9 @@ def train(rank, world_size):
                 # ノードをサンプリング
                 sampled_indices = sample_nodes(updated_features, num_of_samples=140)
 
-                print(f"updated_features_for_adj: {updated_features_for_adj[sampled_indices]}")
-
                 adj_logits, new_neighbors = adj_generator.module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
 
-                print(f"new_adj_probs: {torch.sigmoid(adj_logits[sampled_indices] / 50)}")
+                print(f"new_adj_probs: {torch.sigmoid(adj_logits / 10)}")
 
                 num_edges = new_neighbors.size(0)
                 if num_edges > 0:
@@ -228,7 +220,7 @@ def train(rank, world_size):
                         new_neighbors[flip_to_0_indices] = 0
                         
                 # ログ確率の計算
-                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits + 1e-9, new_neighbors.float())
+                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 10 + 1e-9, new_neighbors.float())
                 log_probs_layers.append(log_probs)
                 print(f"log_probs_layers: {log_probs_layers}")
 
@@ -382,23 +374,7 @@ def train(rank, world_size):
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
-                save_all_weights(adj_generator, gcn_models, v_networks, final_layer, best_loss)
-                # save_checkpoint({
-                #     'epoch': epoch,
-                #     'state_dict': {
-                #         'adj_generators': [adj_generator.module.state_dict() for adj_generator in adj_generators],
-                #         'gcn_models': [gcn_model.module.state_dict() for gcn_model in gcn_models],
-                #         'v_networks': [v_network.module.state_dict() for v_network in v_networks],
-                #         'final_layer': final_layer.module.state_dict()
-                #     },
-                #     'optimizer': {
-                #         'optimizer_adj': [opt.state_dict() for opt in optimizer_adj],
-                #         'optimizer_gcn': [opt.state_dict() for opt in optimizer_gcn],
-                #         'optimizer_v': [opt.state_dict() for opt in optimizer_v],
-                #         'optimizer_final_layer': optimizer_final_layer.state_dict()
-                #     },
-                #     'best_loss': best_loss
-                # })       
+                save_all_weights(adj_generator, gcn_models, v_networks, final_layer, best_loss)   
             
             end_time = time.time()
             epoch_time = end_time - start_time
