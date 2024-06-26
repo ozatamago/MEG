@@ -79,7 +79,7 @@ def train(rank, world_size):
     data = dataset[0].to(device)
 
     # Initialize NeighborLoader
-    num_neighbors = [5] * num_model_layers
+    num_neighbors = [30] * num_model_layers
 
     train_loader = NeighborLoader(
         data,
