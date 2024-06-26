@@ -124,7 +124,7 @@ def train(rank, world_size):
     adj = adj.to(device)  # adjもデバイスに移動
 
     # Initialize components
-    adj_generator = AdjacencyGenerator(d_model + pos_enc_dim, num_heads, num_model_layers, device, dropout).to(device)
+    adj_generator = AdjacencyGenerator(d_model + pos_enc_dim, num_heads, num_layers, device, dropout).to(device)
     gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
     final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
     v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
