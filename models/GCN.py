@@ -8,11 +8,13 @@ class GCN(nn.Module):
 
         # Define a single GCN layer followed by ReLU
         self.conv = GCNConv(in_channels, out_channels)
-        self.relu = nn.ReLU(inplace=False)
+        self.leaky_relu = nn.LeakyRelu(0.2)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, edge_index):
+        x = self.dropout(x)
         x = self.conv(x, edge_index)
-        x = self.relu(x)  # Apply ReLU activation
+        x = self.leaky_relu(x)  # Apply ReLU activation
         return x
 
 # Example usage:
