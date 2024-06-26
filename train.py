@@ -124,19 +124,19 @@ def train(rank, world_size):
     adj = adj.to(device)  # adjもデバイスに移動
 
     # Initialize components
-    adj_generator = AdjacencyGenerator(d_model + pos_enc_dim, num_heads, num_model_layers, device, dropout).to(device)
+    adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, num_layers, device, dropout).to(device) for _ in range(num_model_layers)]
     gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
     final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
     v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
 
     # To parallelize for GPUs
-    adj_generator = DDP(adj_generator, device_ids=[rank], broadcast_buffers=False)
+    adj_generators = [DDP(adj_gen, device_ids=[rank], broadcast_buffers=False) for adj_gen in adj_generators]
     gcn_models = [DDP(gcn_model, device_ids=[rank], broadcast_buffers=False) for gcn_model in gcn_models]
     final_layer = DDP(final_layer, device_ids=[rank], broadcast_buffers=False)
     v_networks = [DDP(v_network, device_ids=[rank], broadcast_buffers=False) for v_network in v_networks]
 
     # Ensure the weight files are present
-    load_all_weights(adj_generator, gcn_models, v_networks, final_layer)
+    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
     best_acc = 0
 
@@ -207,9 +207,9 @@ def train(rank, world_size):
                 # ノードをサンプリング
                 sampled_indices = sample_nodes(batch.x, num_of_samples=140)
             
-                adj_logits, new_neighbors = adj_generator.module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
+                adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
 
-                print(f"new_adj_probs: {torch.sigmoid(adj_logits / 100)}")
+                print(f"new_adj_probs: {torch.sigmoid(adj_logits / 20)}")
 
                 num_edges = new_neighbors.size(0)
                 if num_edges > 0:
@@ -246,9 +246,7 @@ def train(rank, world_size):
 
                 # Forward pass through GCN using all nodes
                 edge_index, _ = dense_to_sparse(adj_clone)
-                node_features = gcn_models[layer].module(updated_features, edge_index)
-
-                updated_features = node_features.clone()
+                updated_features = gcn_models[layer].module(updated_features, edge_index).clone()
 
                 # Calculate reward
                 sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
@@ -302,15 +300,24 @@ def train(rank, world_size):
         optimizer_final_layer.step()
 
         count = 0
-        log_probs_with_adv_sum = 0  # 合計ログ確率とアドバンテージの積を計算するための変数
+        log_probs_with_adv_sum = []  # 合計ログ確率とアドバンテージの積を計算するための変数
         # 各層の勾配計算とアドバンテージの適用
         for count in range(num_model_layers):
             log_probs_with_adv = log_probs_layers[count] * advantages_layers[count]
-            log_probs_with_adv_sum += log_probs_with_adv  # ログ確率とアドバンテージの積を合計
+            log_probs_with_adv_sum.append(log_probs_with_adv)  # ログ確率とアドバンテージの積を合計
         
-        log_probs_with_adv_sum.backward(retain_graph=True)  # 合計したログ確率とアドバンテージの積で勾配を計算
-        torch.nn.utils.clip_grad_norm_(adj_generator.parameters(), max_norm=0.1)
-        optimizer_adj.step()  # 一度だけステップ
+        for i, (adj_gen, optimizer) in enumerate(zip(adj_generators, optimizer_adj)):
+                # オプティマイザの勾配をリセット
+                optimizer.zero_grad()
+                
+                # 各層の勾配を計算
+                log_probs_with_adv_sum[i].backward(retain_graph=True)
+                
+                # 勾配のクリッピング
+                torch.nn.utils.clip_grad_norm_(adj_gen.parameters(), max_norm=0.1)
+                
+                # オプティマイザのステップ
+                optimizer.step()
 
         # Update V-networks
         for i, (v_network, v_opt) in enumerate(zip(v_networks, optimizer_v)):
@@ -334,8 +341,9 @@ def train(rank, world_size):
 
         if rank == 0:
             print("validation start")
-            adj_generator.to(rank)
-            adj_generator.eval()
+            for adj_generator in adj_generators:
+                adj_generator.to(rank)
+                adj_generator.eval()
             final_layer.to(rank)
             final_layer.eval()
             for gcn_model in gcn_models:
@@ -354,7 +362,7 @@ def train(rank, world_size):
                     print(f"validation layer: {layer}")
 
                     # 全ノードに対して新しい隣接行列を一括で生成
-                    _, new_neighbors_for_val = adj_generator.module.generate_new_neighbors(edge_index, node_features_for_val)
+                    _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features_for_val)
                     
                     # 新しい隣接行列を更新
                     new_adj_for_val = torch.zeros((num_nodes, num_nodes), device=device)
@@ -382,7 +390,7 @@ def train(rank, world_size):
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
-                save_all_weights(adj_generator, gcn_models, v_networks, final_layer, best_loss)
+                save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)
                 # save_checkpoint({
                 #     'epoch': epoch,
                 #     'state_dict': {
@@ -429,7 +437,7 @@ def train(rank, world_size):
     
     print("Training finished and model weights saved!")
 
-    load_all_weights(adj_generator, gcn_models, v_networks, final_layer)
+    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
     
     # # プロットする関数を定義
@@ -477,7 +485,8 @@ def train(rank, world_size):
     #     v_network.module.load_state_dict(best_checkpoint['state_dict']['v_networks'][i])
     # final_layer.module.load_state_dict(best_checkpoint['state_dict']['final_layer'])
     
-    adj_generator.eval()
+    for adj_generator in adj_generators:
+        adj_generator.eval()
     final_layer.eval()
     for gcn_model in gcn_models:
         gcn_model.eval()
@@ -492,7 +501,7 @@ def train(rank, world_size):
             print(f"\nTesting Layer {layer + 1}/{num_model_layers}")
 
             # 全ノードに対して新しい隣接行列を一括で生成
-            _, new_neighbors = adj_generator.module.generate_new_neighbors(edge_index, node_features)
+            _, new_neighbors = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features)
 
             # 新しい隣接行列を更新
             new_adj = torch.zeros((num_nodes, num_nodes), device=device)
