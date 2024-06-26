@@ -81,6 +81,7 @@ class AdjacencyGenerator(nn.Module):
         # adj_logits = self.leaky_relu(adj_logits)
         adj_logits = F.linear(adj_logits, self.weight_layer4.weight.clone(), self.weight_layer4.bias)
         adj_logits = self.leaky_relu(adj_logits)
+        adj_logits = self.dropout(adj_logits)  # Apply Dropout
         adj_logits = F.linear(adj_logits, self.weight_layer5.weight.clone(), self.weight_layer5.bias)
         
         adj_logits = adj_logits + query
