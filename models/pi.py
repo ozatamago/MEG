@@ -66,9 +66,10 @@ class AdjacencyGenerator(nn.Module):
             
             query = self.ff_layers[i](query)
             
-        query = self.dropout(query)  # Apply Dropout
         query = self.leaky_relu(query)  # Apply ReLU activation
         query = self.norm_layers_f[0](query)  # Norm
+
+        query = self.dropout(query)  # Apply Dropout
 
         adj_logits = query.squeeze(0)  # (1, d_model) -> (d_model)
         
