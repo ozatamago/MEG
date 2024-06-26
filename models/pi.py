@@ -76,7 +76,7 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = F.linear(adj_logits, self.weight_layer.weight.clone(), self.weight_layer.bias)
         # adj_logits = self.leaky_relu(adj_logits)
         # adj_logits = F.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
-        adj_logits = self.leaky_relu(adj_logits)
+        # adj_logits = self.leaky_relu(adj_logits)
         adj_logits = F.linear(adj_logits, self.weight_layer3.weight.clone(), self.weight_layer3.bias)
         adj_logits = self.leaky_relu(adj_logits)
         adj_logits = F.linear(adj_logits, self.weight_layer4.weight.clone(), self.weight_layer4.bias)
