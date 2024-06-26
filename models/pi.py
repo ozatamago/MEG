@@ -31,7 +31,7 @@ class AdjacencyGenerator(nn.Module):
         self.dropout = nn.Dropout(dropout).to(device)
 
         self.weight_layer = nn.Linear(d_model, 4 * d_model).to(device)
-        self.weight_layer2 = nn.Linear(4 * d_model, 4 * d_model).to(device)
+        # self.weight_layer2 = nn.Linear(4 * d_model, 4 * d_model).to(device)
         self.weight_layer3 = nn.Linear(4 * d_model, 4 * d_model).to(device)
         self.weight_layer4 = nn.Linear(4 * d_model, 4 * d_model).to(device)
         self.weight_layer5 = nn.Linear(4 * d_model, d_model).to(device)
@@ -74,8 +74,8 @@ class AdjacencyGenerator(nn.Module):
         adj_logits = query.squeeze(0)  # (1, d_model) -> (d_model)
         
         adj_logits = F.linear(adj_logits, self.weight_layer.weight.clone(), self.weight_layer.bias)
-        adj_logits = self.leaky_relu(adj_logits)
-        adj_logits = F.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
+        # adj_logits = self.leaky_relu(adj_logits)
+        # adj_logits = F.linear(adj_logits, self.weight_layer2.weight.clone(), self.weight_layer2.bias)
         adj_logits = self.leaky_relu(adj_logits)
         adj_logits = F.linear(adj_logits, self.weight_layer3.weight.clone(), self.weight_layer3.bias)
         adj_logits = self.leaky_relu(adj_logits)
