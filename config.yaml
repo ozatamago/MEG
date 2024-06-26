@@ -2,14 +2,14 @@
 
 # Model hyperparameters
 model:
-  num_model_layers: 7
+  num_model_layers: 5
   num_node_features: 1433
   num_classes: 7
   hidden_size: 64
   d_model: 1433
   num_heads: 8
   d_ff: 256
-  num_layers: 4
+  num_layers: 10
   dropout: 0.1
   num_gcn_layers: 1
 
