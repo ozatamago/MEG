@@ -154,8 +154,6 @@ def train(rank, world_size):
     
     # load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
     best_loss = load_best_loss()
-    bad_counter = 0
-    patience = 100
 
     # 配列を初期化
     epoch_acc_list = []
@@ -172,8 +170,8 @@ def train(rank, world_size):
         
         print(f"\nEpoch {epoch + 1}/{epochs}")
         
-        adj_generator.to(rank)
-        adj_generator.train()
+        for adj_generator in adj_generators:
+            adj_generator.train()
         final_layer.to(rank)
         final_layer.train()
         for gcn_model in gcn_models:
@@ -189,20 +187,16 @@ def train(rank, world_size):
         log_probs_layers = []
         value_functions = []
         updated_features = data.x.clone().to(device)  # バッチ内の特徴量をデバイスに転送
-        new_adj = torch.zeros((data.num_nodes, data.num_nodes), device=device)
-        new_adj[data.edge_index[0], data.edge_index[1]] = 1
-        adj_clone = new_adj.clone().detach()
 
         # バッチ処理のためのNeighborLoaderの反復処理
         for layer, layer_loader in enumerate(neighbor_loaders):
-            layer_acc = 0
+            print(f"\nLayer {layer + 1}/{num_model_layers}")
             for batch in layer_loader:
                 batch = batch.to(device)
                 print(f"\nbatch: {batch}")
+                print(f"batch.edge_index[0]: {batch.edge_index[0]}")
 
-                print(f"\nLayer {layer + 1}/{num_model_layers}")
-
-                updated_features_for_adj = updated_features.clone().detach()
+                updated_features_for_adj = updated_features[batch.n_id].clone().detach()
 
                 # ノードをサンプリング
                 sampled_indices = sample_nodes(batch.x, num_of_samples=140)
@@ -246,7 +240,10 @@ def train(rank, world_size):
 
                 # Forward pass through GCN using all nodes
                 edge_index, _ = dense_to_sparse(adj_clone)
-                updated_features = gcn_models[layer].module(updated_features, edge_index).clone()
+                updated_batch_features = gcn_models[layer].module(updated_features[batch.n_id], edge_index).clone()
+                print(f"updated_features: {updated_batch_features}")
+
+                updated_features[batch.n_id] = updated_batch_features
 
                 # Calculate reward
                 sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
@@ -260,11 +257,17 @@ def train(rank, world_size):
                 total_rewards += reward
                 print(f"Reward for layer {layer + 1}: {reward}")
 
-        output = final_layer.module(updated_features[:batch.batch_size])
+        # Extract features and labels for the training data
+        masked_features = updated_features[idx_train]
+        masked_labels = data.y[idx_train]
+
+        # Forward pass through the final layer using only the masked features
+        output = final_layer.module(masked_features)
         output = F.log_softmax(output, dim=1)
         print(f'output.shape: {output.shape}')
 
-        acc = accuracy(output, batch.y[:batch.batch_size])
+        # Calculate accuracy using only the masked labels
+        acc = accuracy(output, masked_labels)
         print(f"Training accuracy: {acc * 100:.2f}%")  # Print accuracy
         epoch_acc += acc
         # Calculate cumulative rewards for each layer
