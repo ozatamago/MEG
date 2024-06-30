@@ -293,6 +293,7 @@ def train(rank, world_size):
             opt_gcn.zero_grad()     
         optimizer_final_layer.zero_grad()
         loss_gcn = F.nll_loss(output, batch.y[:batch.batch_size])
+        print(f"batch.y[:batch.batch_size]: {batch.y[:batch.batch_size]}")
         print(f"GCN loss: {loss_gcn.item()}")
         # visualize_tensor(loss_gcn, f"gcn_loss_graph")
         loss_gcn.backward()
