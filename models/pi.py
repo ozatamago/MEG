@@ -86,7 +86,7 @@ class AdjacencyGenerator(nn.Module):
         
         adj_logits = adj_logits + query
         adj_logits = self.final_norm(adj_logits)
-        print(f"adj_logits: {adj_logits}")
+        # print(f"adj_logits: {adj_logits}")
 
         adj_logits = F.linear(adj_logits, self.weight_vector.weight.clone(), self.weight_vector.bias).squeeze(1)
 
@@ -95,6 +95,7 @@ class AdjacencyGenerator(nn.Module):
     def generate_new_neighbors(self, edge_index, x):
         adj_logits = self.forward(edge_index, x)
         adj_probs = torch.sigmoid(adj_logits / 20).to(self.device)  # Reduce to (num_neighbors + 1)
+        print(f"adj_probs: {adj_probs}")
         new_edges = torch.bernoulli(adj_probs).to(self.device)  # Sample new neighbors
 
         return adj_logits, new_edges
