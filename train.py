@@ -239,7 +239,7 @@ def train(rank, world_size):
                 sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
                 print(f"sum_new_neighbors: {sum_new_neighbors}")
                 # log_sum = 1.0 / torch.exp(torch.tensor(sum_new_neighbors / 2000.0, device=device))  # sum_new_neighborsをtensorに変換
-                log_sum = -sum_new_neighbors * 100 / len(batch.edge_index[0])
+                log_sum = -sum_new_neighbors * 10 / len(batch.edge_index[0])
                 reward = log_sum
 
                 # reward = log_sum.item()
@@ -266,7 +266,7 @@ def train(rank, world_size):
         cumulative_rewards = []
         for l in range(num_model_layers):
             # cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
-            cumulative_reward = sum(rewards_for_adj[l:]) + (100 * num_model_layers * acc)
+            cumulative_reward = sum(rewards_for_adj[l:]) + (10 * num_model_layers * acc)
             cumulative_rewards.append(cumulative_reward)
 
         print(f"Cumulative rewards: {cumulative_rewards}")
