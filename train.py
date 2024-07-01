@@ -205,20 +205,11 @@ def train(rank, world_size):
                 print(f"new_adj_probs: {torch.sigmoid(adj_logits / 20)}")
 
                 num_edges = new_neighbors.size(0)
-                if num_edges > 0:
-                    ones_indices = (new_neighbors == 1).nonzero(as_tuple=True)[0]
-                    zeros_indices = (new_neighbors == 0).nonzero(as_tuple=True)[0]
-
-                    num_flip_to_1 = min(100, len(zeros_indices))
-                    num_flip_to_0 = min(100, len(ones_indices))
-
-                    if num_flip_to_1 > 0:
-                        flip_to_1_indices = zeros_indices[torch.randint(len(zeros_indices), (num_flip_to_1,))]
-                        new_neighbors[flip_to_1_indices] = 1
-
-                    if num_flip_to_0 > 0:
-                        flip_to_0_indices = ones_indices[torch.randint(len(ones_indices), (num_flip_to_0,))]
-                        new_neighbors[flip_to_0_indices] = 0
+                num_flip = int(num_edges * 0.01)
+                
+                if num_flip > 0:
+                    flip_indices = torch.randperm(num_edges)[:num_flip]  # ランダムにインデックスを選択
+                    new_neighbors[flip_indices] = 1 - new_neighbors[flip_indices]  # 0を1に、1を0に反転
                         
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 20 + 1e-9, new_neighbors.float())
