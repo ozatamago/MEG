@@ -82,7 +82,7 @@ def train(rank, world_size):
     neighbor_loaders = [
         NeighborLoader(
             data,
-            num_neighbors=[30] * (num_model_layers - i),  # 各層で処理するノードを減らす
+            num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
             batch_size=140,
             input_nodes=data.train_mask,
             shuffle=True,
@@ -127,7 +127,7 @@ def train(rank, world_size):
     adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, num_layers, device, dropout).to(device) for _ in range(num_model_layers)]
     gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
     final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
-    v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, num_layers, 140, dropout).to(device) for _ in range(num_model_layers)]
+    v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, 4, 140, dropout).to(device) for _ in range(num_model_layers)]
 
     # To parallelize for GPUs
     adj_generators = [DDP(adj_gen, device_ids=[rank], broadcast_buffers=False) for adj_gen in adj_generators]
@@ -194,7 +194,6 @@ def train(rank, world_size):
             for batch in layer_loader:
                 batch = batch.to(device)
                 print(f"\nbatch: {batch}")
-                print(f"batch.edge_index[0]: {batch.edge_index[0]}")
 
                 updated_features_for_adj = updated_features[batch.n_id].clone().detach()
 
@@ -222,7 +221,7 @@ def train(rank, world_size):
                         new_neighbors[flip_to_0_indices] = 0
                         
                 # ログ確率の計算
-                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits + 1e-9, new_neighbors.float())
+                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 20 + 1e-9, new_neighbors.float())
                 log_probs_layers.append(log_probs)
                 print(f"log_probs_layers: {log_probs_layers}")
 
@@ -248,9 +247,11 @@ def train(rank, world_size):
                 # Calculate reward
                 sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
                 print(f"sum_new_neighbors: {sum_new_neighbors}")
-                log_sum = 1.0 / torch.exp(torch.tensor(sum_new_neighbors / 2000.0, device=device))  # sum_new_neighborsをtensorに変換
-                
-                reward = log_sum.item()
+                # log_sum = 1.0 / torch.exp(torch.tensor(sum_new_neighbors / 2000.0, device=device))  # sum_new_neighborsをtensorに変換
+                log_sum = -sum_new_neighbors * 10 / len(batch.edge_index[0])
+                reward = log_sum
+
+                # reward = log_sum.item()
 
                 rewards_for_adj.append(reward)
                 rewards_for_v.append(reward)
@@ -273,7 +274,8 @@ def train(rank, world_size):
         # Calculate cumulative rewards for each layer
         cumulative_rewards = []
         for l in range(num_model_layers):
-            cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
+            # cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
+            cumulative_reward = sum(rewards_for_adj[l:]) + (10 * num_model_layers * acc)
             cumulative_rewards.append(cumulative_reward)
 
         print(f"Cumulative rewards: {cumulative_rewards}")
@@ -292,8 +294,8 @@ def train(rank, world_size):
         for opt_gcn in optimizer_gcn:
             opt_gcn.zero_grad()     
         optimizer_final_layer.zero_grad()
-        loss_gcn = F.nll_loss(output, batch.y[:batch.batch_size])
-        print(f"batch.y[:batch.batch_size]: {batch.y[:batch.batch_size]}")
+        loss_gcn = F.nll_loss(output, masked_labels)
+        # print(f"batch.y[:batch.batch_size]: {batch.y[:batch.batch_size]}")
         print(f"GCN loss: {loss_gcn.item()}")
         # visualize_tensor(loss_gcn, f"gcn_loss_graph")
         loss_gcn.backward()
