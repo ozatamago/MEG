@@ -222,7 +222,6 @@ def train(rank, world_size):
 
                 # Sampled nodes for computing gradient and state value function V
                 sampled_features = updated_features[sampled_indices].detach()
-                print(f"Sampled features for layer {layer + 1}: {sampled_features.shape}")
 
                 value_function = v_networks[layer].module(sampled_features.unsqueeze(0)).view(-1)
                 value_functions.append(value_function)
@@ -231,7 +230,6 @@ def train(rank, world_size):
                 # Forward pass through GCN using all nodes
                 edge_index, _ = dense_to_sparse(adj_clone)
                 updated_batch_features = gcn_models[layer].module(updated_features[batch.n_id], edge_index).clone()
-                print(f"updated_features: {updated_batch_features}")
 
                 updated_features[batch.n_id] = updated_batch_features
 
@@ -256,7 +254,6 @@ def train(rank, world_size):
         # Forward pass through the final layer using only the masked features
         output = final_layer.module(masked_features)
         output = F.log_softmax(output, dim=1)
-        print(f'output.shape: {output.shape}')
 
         # Calculate accuracy using only the masked labels
         acc = accuracy(output, masked_labels)
