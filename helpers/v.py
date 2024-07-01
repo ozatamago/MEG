@@ -13,13 +13,14 @@ class VNetwork(nn.Module):
         for layer in self.encoder.layers:
             sa_output, _ = layer.self_attn(x, x, x, need_weights=False)
             sa_output = sa_output.clone()  # Add this line to avoid in-place modification
-            sa_output = layer.dropout1(sa_output)
+            # sa_output = layer.dropout1(sa_output)
             sa_output = layer.norm1(x + sa_output)
 
             ff_output = layer.linear1(sa_output)
-            ff_output = layer.dropout(layer.activation(ff_output))
+            # ff_output = layer.dropout(layer.activation(ff_output))
+            ff_output = layer.activation(ff_output)
             ff_output = layer.linear2(ff_output)
-            x = layer.norm2(sa_output + layer.dropout2(ff_output))
+            x = layer.norm2(sa_output + ff_output)
 
         output = nn.functional.linear(x, self.linear1.weight.clone(), self.linear1.bias).squeeze(2)
         output = nn.functional.linear(output, self.linear2.weight.clone(), self.linear2.bias)
