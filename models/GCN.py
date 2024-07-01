@@ -12,7 +12,7 @@ class GCN(nn.Module):
         # self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, edge_index):
-        # x = self.dropout(x)
+        x = self.dropout(x)
         x = self.conv(x, edge_index)
         x = self.leaky_relu(x)  # Apply ReLU activation
         return x
