@@ -20,7 +20,7 @@ def load_model_weights(model, filename):
     else:
         raise FileNotFoundError(f"No such file: '{filepath}'")
 
-def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
+def load_all_weights(adj_generators, gcn_models, v_networks, q_networks, final_layer):
     def try_load(model, filename):
         try:
             load_model_weights(model, filename)
@@ -38,6 +38,9 @@ def load_all_weights(adj_generators, gcn_models, v_networks, final_layer):
     for i, v_network in enumerate(v_networks):
         filename = f'v_network_weights_{i}.pth'
         try_load(v_network, filename)
+    for i, q_network in enumerate(q_networks):
+        filename = f'q_network_weights_{i}.pth'
+        try_load(q_network, filename)
     try_load(final_layer, 'final_layer_weights.pth')
     print("Model weights loading complete. Training will continue from the available weights.")
 
@@ -46,13 +49,15 @@ def save_model_weights(model, filename):
     torch.save(model.state_dict(), filepath)
     print(f"Saved model weights to {filepath}")
 
-def save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss):
+def save_all_weights(adj_generators, gcn_models, v_networks, q_networks, final_layer, best_loss):
     for i, adj_generator in enumerate(adj_generators):
         save_model_weights(adj_generator, f'adj_generator_{i}.pth') 
     for i, gcn_model in enumerate(gcn_models):
         save_model_weights(gcn_model, f'gcn_model_weights_{i}.pth')
     for i, v_network in enumerate(v_networks):
         save_model_weights(v_network, f'v_network_weights_{i}.pth')
+    for i, q_network in enumerate(q_networks):
+        save_model_weights(q_network, f'q_network_weights_{i}.pth')
     save_model_weights(final_layer, 'final_layer_weights.pth')
     best_loss_filepath = os.path.join(weights_dir, 'best_loss.txt')
     with open(best_loss_filepath, 'w') as f:
@@ -68,4 +73,3 @@ def load_best_loss(directory='weights'):
         best_loss = 1000.0
         print(f"No best_loss file found. Using default value: {best_loss}")
     return best_loss
-
