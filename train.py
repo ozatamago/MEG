@@ -20,7 +20,8 @@ from models.pi import AdjacencyGenerator
 from models.GCN import GCN
 from models.final_layer import FinalLayer
 from helpers.data_loader import accuracy
-from helpers.v import VNetwork
+from models.v import VNetwork
+from models.q import QNetwork
 from helpers.sampling import sample_nodes
 from helpers.weight_loader import load_all_weights, save_all_weights, load_best_loss
 from helpers.positional_encoding import positional_encoding
@@ -127,22 +128,25 @@ def train(rank, world_size):
     adj_generators = [AdjacencyGenerator(d_model + pos_enc_dim, num_heads, num_layers, device, dropout).to(device) for _ in range(num_model_layers)]
     gcn_models = [GCN(d_model + pos_enc_dim, hidden_size, num_node_combined_features, num_gcn_layers).to(device) for _ in range(num_model_layers)]
     final_layer = FinalLayer(num_node_combined_features, num_classes).to(device)  # FinalLayerの初期化
-    v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, 4, 140).to(device) for _ in range(num_model_layers)]
+    v_networks = [VNetwork(d_model + pos_enc_dim, num_heads, d_ff, 4, 140, dropout).to(device) for _ in range(num_model_layers)]
+    q_networks = [QNetwork(d_model + pos_enc_dim, num_heads, d_ff, 4, 140, dropout).to(device) for _ in range(num_model_layers)]
 
     # To parallelize for GPUs
     adj_generators = [DDP(adj_gen, device_ids=[rank], broadcast_buffers=False) for adj_gen in adj_generators]
     gcn_models = [DDP(gcn_model, device_ids=[rank], broadcast_buffers=False) for gcn_model in gcn_models]
     final_layer = DDP(final_layer, device_ids=[rank], broadcast_buffers=False)
     v_networks = [DDP(v_network, device_ids=[rank], broadcast_buffers=False) for v_network in v_networks]
+    q_networks = [DDP(q_network, device_ids=[rank], broadcast_buffers=False) for q_network in q_networks]
 
     # Ensure the weight files are present
-    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
+    load_all_weights(adj_generators, gcn_models, v_networks, q_networks, final_layer)
 
     best_acc = 0
 
     # Set up optimizers
     optimizer_gcn = [optim.Adam(gcn_model.parameters(), lr=config['optimizer']['lr_gcn']) for gcn_model in gcn_models]
     optimizer_v = [optim.Adam(v_network.parameters(), lr=config['optimizer']['lr_v']) for v_network in v_networks]
+    optimizer_q = [optim.Adam(q_network.parameters(), lr=config['optimizer']['lr_q']) for q_network in q_networks]
     optimizer_adj = [optim.Adam(adj_generator.parameters(), lr=config['optimizer']['lr_adj'], maximize=True) for adj_generator in adj_generators]
     optimizer_final_layer = optim.Adam(final_layer.parameters(), lr=config['optimizer']['lr_final_layer'])
 
@@ -180,12 +184,17 @@ def train(rank, world_size):
         for v_network in v_networks:
             v_network.to(rank)
             v_network.train()
+        for q_network in q_networks:
+            q_network.to(rank)
+            q_network.train()
 
         total_rewards = 0
         rewards_for_adj = []
         rewards_for_v = []
+        rewards_for_q = []
         log_probs_layers = []
         value_functions = []
+        q_functions = []
         updated_features = data.x.clone().to(device)  # バッチ内の特徴量をデバイスに転送
 
         # バッチ処理のためのNeighborLoaderの反復処理
@@ -198,7 +207,7 @@ def train(rank, world_size):
                 updated_features_for_adj = updated_features[batch.n_id].clone().detach()
 
                 # ノードをサンプリング
-                sampled_indices = sample_nodes(batch.x, num_of_samples=140)
+                sampled_indices = sample_nodes(data.x, num_of_samples=140)
             
                 adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
 
@@ -210,7 +219,7 @@ def train(rank, world_size):
                 if num_flip > 0:
                     flip_indices = torch.randperm(num_edges)[:num_flip]  # ランダムにインデックスを選択
                     new_neighbors[flip_indices] = 1 - new_neighbors[flip_indices]  # 0を1に、1を0に反転
-                        
+                                    
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 20 + 1e-9, new_neighbors.float())
                 log_probs_layers.append(log_probs)
@@ -220,18 +229,19 @@ def train(rank, world_size):
                 adj_clone = torch.zeros((batch.num_nodes, batch.num_nodes), device=device)
                 adj_clone[batch.edge_index[0], batch.edge_index[1]] = new_neighbors.float()
 
-                # Sampled nodes for computing gradient and state value function V
-                sampled_features = updated_features[sampled_indices].detach()
-
-                value_function = v_networks[layer].module(sampled_features.unsqueeze(0)).view(-1)
+                value_function = v_networks[layer].module(updated_features[sampled_indices].detach().unsqueeze(0)).view(-1)
                 value_functions.append(value_function)
                 print(f"Value function for layer {layer + 1}: {value_function}")
 
                 # Forward pass through GCN using all nodes
                 edge_index, _ = dense_to_sparse(adj_clone)
                 updated_batch_features = gcn_models[layer].module(updated_features[batch.n_id], edge_index).clone()
+                print(f"updated_features: {updated_batch_features}")
 
                 updated_features[batch.n_id] = updated_batch_features
+
+                q_function = q_networks[layer].module(updated_features[sampled_indices].detach().unsqueeze(0)).view(-1)
+                q_functions.append(q_function)
 
                 # Calculate reward
                 sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
@@ -244,6 +254,7 @@ def train(rank, world_size):
 
                 rewards_for_adj.append(reward)
                 rewards_for_v.append(reward)
+                rewards_for_q.append(reward)
                 total_rewards += reward
                 print(f"Reward for layer {layer + 1}: {reward}")
 
@@ -254,6 +265,7 @@ def train(rank, world_size):
         # Forward pass through the final layer using only the masked features
         output = final_layer.module(masked_features)
         output = F.log_softmax(output, dim=1)
+        print(f'output.shape: {output.shape}')
 
         # Calculate accuracy using only the masked labels
         acc = accuracy(output, masked_labels)
@@ -274,7 +286,7 @@ def train(rank, world_size):
         # Calculate advantages
         advantages_layers = []
         for l in range(num_model_layers):
-            advantages = cumulative_rewards[l] - value_functions[l]
+            advantages = q_functions[l] - value_functions[l]
             advantages_layers.append(advantages)
             print(f"Advantages for layer {l + 1}: {advantages.item()}")
 
@@ -323,10 +335,18 @@ def train(rank, world_size):
             v_loss.backward()
             torch.nn.utils.clip_grad_norm_(v_network.parameters(), max_norm=0.1)
             v_opt.step()
+        
+        for i, (q_network, q_opt) in enumerate(zip(q_networks, optimizer_q)):
+            # print(f"i: {i}")
+            q_opt.zero_grad()
+            q_loss = F.mse_loss(q_functions[i], cumulative_rewards[i].unsqueeze(0))
+            # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
+            print(f"V-network loss for layer {i + 1}: {q_loss.item()}")
+            q_loss.backward()
+            torch.nn.utils.clip_grad_norm_(q_network.parameters(), max_norm=0.1)
+            q_opt.step()
 
         print("gradient computation is finished!")
-
-        # save_all_weights(adj_generators, gcn_models, v_networks, final_layer)
 
         # Synchronize CUDA and wait for 2 seconds to ensure all operations are complete
         torch.cuda.synchronize()
@@ -384,23 +404,7 @@ def train(rank, world_size):
                 print("best_loss is updated!")
                 best_loss = val_loss.item()
                 best_acc = val_acc
-                save_all_weights(adj_generators, gcn_models, v_networks, final_layer, best_loss)
-                # save_checkpoint({
-                #     'epoch': epoch,
-                #     'state_dict': {
-                #         'adj_generators': [adj_generator.module.state_dict() for adj_generator in adj_generators],
-                #         'gcn_models': [gcn_model.module.state_dict() for gcn_model in gcn_models],
-                #         'v_networks': [v_network.module.state_dict() for v_network in v_networks],
-                #         'final_layer': final_layer.module.state_dict()
-                #     },
-                #     'optimizer': {
-                #         'optimizer_adj': [opt.state_dict() for opt in optimizer_adj],
-                #         'optimizer_gcn': [opt.state_dict() for opt in optimizer_gcn],
-                #         'optimizer_v': [opt.state_dict() for opt in optimizer_v],
-                #         'optimizer_final_layer': optimizer_final_layer.state_dict()
-                #     },
-                #     'best_loss': best_loss
-                # })       
+                save_all_weights(adj_generators, gcn_models, v_networks, q_networks, final_layer, best_loss)    
             
             end_time = time.time()
             epoch_time = end_time - start_time
@@ -431,53 +435,10 @@ def train(rank, world_size):
     
     print("Training finished and model weights saved!")
 
-    load_all_weights(adj_generators, gcn_models, v_networks, final_layer)
-
-    
-    # # プロットする関数を定義
-    # def plot_metrics(epoch_acc_list, val_acc_list, val_loss_list, output_dir='plots'):
-    #     if not os.path.exists(output_dir):
-    #         os.makedirs(output_dir)
-        
-    #     plt.figure(figsize=(12, 5))
-    
-    #     # ACCのプロット
-    #     plt.subplot(1, 2, 1)
-    #     plt.plot(epoch_acc_list, label='Training Accuracy')
-    #     plt.plot(val_acc_list, label='Validation Accuracy')
-    #     plt.xlabel('Epoch')
-    #     plt.ylabel('Accuracy')
-    #     plt.title('Training and Validation Accuracy')
-    #     plt.legend()
-    
-    #     # Lossのプロット
-    #     plt.subplot(1, 2, 2)
-    #     plt.plot(val_loss_list, label='Validation Loss')
-    #     plt.xlabel('Epoch')
-    #     plt.ylabel('Loss')
-    #     plt.title('Validation Loss')
-    #     plt.legend()
-    
-    #     plt.tight_layout()
-    #     plt.savefig(os.path.join(output_dir, 'training_validation_metrics.png'))
-    #     plt.close()
-
-    # # プロットを呼び出す
-    # if rank == 0:
-    #     plot_metrics(epoch_acc_list, val_acc_list, val_loss_list)
+    load_all_weights(adj_generators, gcn_models, v_networks, q_networks, final_layer)
 
     # Test phase
     print("Starting testing phase...")
-
-    # Load the best checkpoint
-    # best_checkpoint = torch.load(checkpoint_path, map_location={'cuda:0': 'cuda:%d' % rank})
-    # for i, adj_generator in enumerate(adj_generators):
-    #     adj_generator.module.load_state_dict(best_checkpoint['state_dict']['adj_generators'][i])
-    # for i, gcn_model in enumerate(gcn_models):
-    #     gcn_model.module.load_state_dict(best_checkpoint['state_dict']['gcn_models'][i])
-    # for i, v_network in enumerate(v_networks):
-    #     v_network.module.load_state_dict(best_checkpoint['state_dict']['v_networks'][i])
-    # final_layer.module.load_state_dict(best_checkpoint['state_dict']['final_layer'])
     
     for adj_generator in adj_generators:
         adj_generator.eval()
