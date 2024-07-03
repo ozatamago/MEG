@@ -475,7 +475,7 @@ def train(rank, world_size):
             NeighborLoader(
                 data,
                 num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
-                batch_size=140,
+                batch_size=1000,
                 input_nodes=data.test_mask,
                 shuffle=True,
             ) for i in range(num_model_layers)
