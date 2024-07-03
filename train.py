@@ -83,7 +83,7 @@ def train(rank, world_size):
     neighbor_loaders = [
         NeighborLoader(
             data,
-            num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
+            num_neighbors=[1000] * (num_model_layers - i),  # 各層で処理するノードを減らす
             batch_size=140,
             input_nodes=data.train_mask,
             shuffle=True,
@@ -373,7 +373,7 @@ def train(rank, world_size):
             neighbor_loaders_for_val = [
                 NeighborLoader(
                     data,
-                    num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
+                    num_neighbors=[1000] * (num_model_layers - i),  # 各層で処理するノードを減らす
                     batch_size=500,
                     input_nodes=data.val_mask,
                     shuffle=True,
@@ -474,7 +474,7 @@ def train(rank, world_size):
         neighbor_loaders_for_test = [
             NeighborLoader(
                 data,
-                num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
+                num_neighbors=[1000] * (num_model_layers - i),  # 各層で処理するノードを減らす
                 batch_size=1000,
                 input_nodes=data.test_mask,
                 shuffle=True,
