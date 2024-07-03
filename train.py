@@ -385,7 +385,7 @@ def train(rank, world_size):
                 print("validation computation start")
                 node_features_for_val = data.x.clone().detach()
 
-                for layer, layer_loader in enumerate(neighbor_loaders):
+                for layer, layer_loader in enumerate(neighbor_loaders_for_val):
                     for batch in layer_loader:
                         print(f"validation layer: {layer}")
 
@@ -483,7 +483,7 @@ def train(rank, world_size):
             node_features_for_test = data.x.clone().detach()
             edge_index = data.edge_index.clone().detach()
 
-            for layer, layer_loader in enumerate(neighbor_loaders):
+            for layer, layer_loader in enumerate(neighbor_loaders_for_test):
                 for batch in layer_loader:
                     print(f"validation layer: {layer}")
 
