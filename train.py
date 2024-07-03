@@ -291,7 +291,7 @@ def train(rank, world_size):
         # Calculate advantages
         advantages_layers = []
         for l in range(num_model_layers):
-            advantages = cumulative_rewards[l] - value_functions[l]
+            advantages = q_functions[l] - value_functions[l]
             advantages_layers.append(advantages)
             print(f"Advantages for layer {l + 1}: {advantages.item()}")
 
