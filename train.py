@@ -211,7 +211,7 @@ def train(rank, world_size):
             
                 adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
 
-                print(f"new_adj_probs: {torch.sigmoid(adj_logits / 20)}")
+                print(f"new_adj_probs: {torch.sigmoid(adj_logits / 10)}")
 
                 num_edges = new_neighbors.size(0)
                 num_flip = int(num_edges * 0.001)
@@ -221,7 +221,7 @@ def train(rank, world_size):
                     new_neighbors[flip_indices] = 1 - new_neighbors[flip_indices]  # 0を1に、1を0に反転
                                     
                 # ログ確率の計算
-                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 20 + 1e-9, new_neighbors.float())
+                log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 10 + 1e-9, new_neighbors.float())
                 log_probs_layers.append(log_probs)
                 print(f"log_probs_layers: {log_probs_layers}")
 
