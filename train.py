@@ -216,9 +216,9 @@ def train(rank, world_size):
                 num_edges = new_neighbors.size(0)
                 num_flip = int(num_edges * 0.01)
                 
-                if num_flip > 0:
-                    flip_indices = torch.randperm(num_edges)[:num_flip]  # ランダムにインデックスを選択
-                    new_neighbors[flip_indices] = 1 - new_neighbors[flip_indices]  # 0を1に、1を0に反転
+                # if num_flip > 0:
+                #     flip_indices = torch.randperm(num_edges)[:num_flip]  # ランダムにインデックスを選択
+                #     new_neighbors[flip_indices] = 1 - new_neighbors[flip_indices]  # 0を1に、1を0に反転
                                     
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 20 + 1e-9, new_neighbors.float())
