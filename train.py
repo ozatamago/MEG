@@ -389,7 +389,6 @@ def train(rank, world_size):
                 edge_index = data.edge_index.clone().detach()
 
                 for layer, layer_loader in enumerate(neighbor_loaders):
-                    print(f"\nLayer {layer + 1}/{num_model_layers}")
                     for batch in layer_loader:
                         print(f"validation layer: {layer}")
 
