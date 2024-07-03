@@ -223,7 +223,7 @@ def train(rank, world_size):
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 10 + 1e-9, new_neighbors.float())
                 log_probs_layers.append(log_probs)
-                print(f"log_probs_layers: {log_probs_layers}")
+                # print(f"log_probs_layers: {log_probs_layers}")
 
                 # 新しい隣接行列を更新
                 adj_clone = torch.zeros((batch.num_nodes, batch.num_nodes), device=device)
@@ -236,7 +236,7 @@ def train(rank, world_size):
                 # Forward pass through GCN using all nodes
                 edge_index, _ = dense_to_sparse(adj_clone)
                 updated_batch_features = gcn_models[layer].module(updated_features[batch.n_id], edge_index).clone()
-                print(f"updated_features: {updated_batch_features}")
+                # print(f"updated_features: {updated_batch_features}")
 
                 updated_features[batch.n_id] = updated_batch_features
 
