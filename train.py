@@ -371,31 +371,42 @@ def train(rank, world_size):
                 gcn_model.to(rank)
                 gcn_model.eval()
 
+            neighbor_loaders = [
+                NeighborLoader(
+                    data,
+                    num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
+                    batch_size=140,
+                    input_nodes=data.val_mask,
+                    shuffle=True,
+                ) for i in range(num_model_layers)
+            ]
+
             with torch.no_grad():
                 val_loss = 0
                 val_acc = 0
                 print("validation computation start")
-                new_adj_for_val = adj.clone()
-                node_features_for_val = features.clone()
-                edge_index = data.edge_index.clone()
+                node_features_for_val = features.clone().detach()
+                edge_index = data.edge_index.clone().detach()
 
-                for layer in range(num_model_layers):
-                    print(f"validation layer: {layer}")
+                for layer, layer_loader in enumerate(neighbor_loaders):
+                    print(f"\nLayer {layer + 1}/{num_model_layers}")
+                    for batch in layer_loader:
+                        print(f"validation layer: {layer}")
 
-                    # 全ノードに対して新しい隣接行列を一括で生成
-                    _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features_for_val)
-                    
-                    # 新しい隣接行列を更新
-                    new_adj_for_val = torch.zeros((num_nodes, num_nodes), device=device)
-                    new_adj_for_val[edge_index[0], edge_index[1]] = new_neighbors_for_val.float()
+                        # 全ノードに対して新しい隣接行列を一括で生成
+                        _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, node_features_for_val[batch.n_id])
+                        
+                        # 新しい隣接行列を更新
+                        new_adj_for_val = torch.zeros((num_nodes, num_nodes), device=device)
+                        new_adj_for_val[batch.edge_index[0], batch.edge_index[1]] = new_neighbors_for_val.float()
 
-                    new_adj_sum = new_adj_for_val.sum().item()
-                    print(f"new_adj.sum: {new_adj_sum}")
-                    neighbors_sum_val += new_adj_sum
+                        new_adj_sum = new_adj_for_val.sum().item()
+                        print(f"new_adj.sum: {new_adj_sum}")
+                        neighbors_sum_val += new_adj_sum
 
-                    # GCNレイヤーのフォワードパスを通して特徴量を更新
-                    edge_index_for_val, _ = dense_to_sparse(new_adj_for_val)
-                    node_features_for_val = gcn_models[layer].module(node_features_for_val, edge_index_for_val)
+                        # GCNレイヤーのフォワードパスを通して特徴量を更新
+                        edge_index_for_val, _ = dense_to_sparse(new_adj_for_val)
+                        node_features_for_val[batch.n_id] = gcn_models[layer].module(node_features_for_val[batch.n_id], edge_index_for_val)
 
                 val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
