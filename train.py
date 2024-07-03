@@ -383,8 +383,7 @@ def train(rank, world_size):
                 val_loss = 0
                 val_acc = 0
                 print("validation computation start")
-                node_features_for_val = features.clone().detach()
-                edge_index = data.edge_index.clone().detach()
+                node_features_for_val = data.x.clone().detach()
 
                 for layer, layer_loader in enumerate(neighbor_loaders):
                     for batch in layer_loader:
@@ -394,7 +393,7 @@ def train(rank, world_size):
                         _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, node_features_for_val[batch.n_id])
                         
                         # 新しい隣接行列を更新
-                        new_adj_for_val = torch.zeros((num_nodes, num_nodes), device=device)
+                        new_adj_for_val = torch.zeros((batch.num_nodes, batch.num_nodes), device=device)
                         new_adj_for_val[batch.edge_index[0], batch.edge_index[1]] = new_neighbors_for_val.float()
 
                         new_adj_sum = new_adj_for_val.sum().item()
@@ -481,7 +480,7 @@ def train(rank, world_size):
 
         with torch.no_grad():
             print("validation computation start")
-            node_features_for_test = features.clone().detach()
+            node_features_for_test = data.x.clone().detach()
             edge_index = data.edge_index.clone().detach()
 
             for layer, layer_loader in enumerate(neighbor_loaders):
