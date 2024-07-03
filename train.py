@@ -462,38 +462,54 @@ def train(rank, world_size):
     print("Starting testing phase...")
     
     for adj_generator in adj_generators:
+        adj_generator.to(rank)
         adj_generator.eval()
+    final_layer.to(rank)
     final_layer.eval()
     for gcn_model in gcn_models:
+        gcn_model.to(rank)
         gcn_model.eval()
-    for v_network in v_networks:
-        v_network.eval()
 
-    with torch.no_grad():
-        node_features = features.clone()
-        new_adj = adj.clone()  # 新しい隣接行列を初期化
-        edge_index = data.edge_index.clone()
-        for layer in range(num_model_layers):
-            print(f"\nTesting Layer {layer + 1}/{num_model_layers}")
+    if rank == 0:
+        neighbor_loaders_for_test = [
+            NeighborLoader(
+                data,
+                num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
+                batch_size=140,
+                input_nodes=data.test_mask,
+                shuffle=True,
+            ) for i in range(num_model_layers)
+        ]
 
-            # 全ノードに対して新しい隣接行列を一括で生成
-            _, new_neighbors = adj_generators[layer].module.generate_new_neighbors(edge_index, node_features)
+        with torch.no_grad():
+            print("validation computation start")
+            node_features_for_test = features.clone().detach()
+            edge_index = data.edge_index.clone().detach()
 
-            # 新しい隣接行列を更新
-            new_adj = torch.zeros((num_nodes, num_nodes), device=device)
-            new_adj[edge_index[0], edge_index[1]] = new_neighbors.float()
+            for layer, layer_loader in enumerate(neighbor_loaders):
+                for batch in layer_loader:
+                    print(f"validation layer: {layer}")
 
-            print(f"new_adj.sum: {new_adj.sum().item()}")
-            new_edge_index, _ = dense_to_sparse(new_adj)
-            node_features = gcn_models[layer].module(node_features, new_edge_index)
+                    # 全ノードに対して新しい隣接行列を一括で生成
+                    _, new_neighbors_for_test = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, node_features_for_test[batch.n_id])
+                    
+                    # 新しい隣接行列を更新
+                    new_adj_for_test = torch.zeros((num_nodes, num_nodes), device=device)
+                    new_adj_for_test[batch.edge_index[0], batch.edge_index[1]] = new_neighbors_for_test.float()
 
-        output = final_layer.module(node_features[idx_test])
-        output = F.log_softmax(output, dim=1)
-        test_acc = accuracy(output, labels[idx_test])
-        print(f"Test accuracy: {test_acc * 100:.2f}%")
+                    new_adj_sum = new_adj_for_test.sum().item()
+                    print(f"new_adj.sum: {new_adj_sum}")
+                    neighbors_sum_val += new_adj_sum
 
+                    # GCNレイヤーのフォワードパスを通して特徴量を更新
+                    edge_index_for_test, _ = dense_to_sparse(new_adj_for_test)
+                    node_features_for_test[batch.n_id] = gcn_models[layer].module(node_features_for_test[batch.n_id], edge_index_for_test)
 
-        if rank == 0:
+            output = final_layer.module(node_features[idx_test])
+            output = F.log_softmax(output, dim=1)
+            test_acc = accuracy(output, labels[idx_test])
+            print(f"Test accuracy: {test_acc * 100:.2f}%")
+
             with open(log_file_path, 'a') as f:
                 f.write(f"\nTest accuracy: {test_acc * 100:.2f}%\n")
 
