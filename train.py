@@ -203,6 +203,7 @@ def train(rank, world_size):
             for batch in layer_loader:
                 batch = batch.to(device)
                 print(f"\nbatch: {batch}")
+                print(f"batch.n_id size: {batch.n_id.size(0)}")
 
                 updated_features_for_adj = updated_features[batch.n_id].clone().detach()
 
