@@ -348,7 +348,7 @@ def train(rank, world_size):
             q_opt.zero_grad()
             q_loss = F.mse_loss(q_functions[i], cumulative_rewards_for_q[i].unsqueeze(0))
             # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
-            print(f"V-network loss for layer {i + 1}: {q_loss.item()}")
+            print(f"　Q-network loss for layer {i + 1}: {q_loss.item()}")
             q_loss.backward()
             torch.nn.utils.clip_grad_norm_(q_network.parameters(), max_norm=0.1)
             q_opt.step()
