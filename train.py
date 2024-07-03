@@ -255,7 +255,7 @@ def train(rank, world_size):
 
                 rewards_for_adj.append(reward)
                 rewards_for_v.append(reward)
-                rewards_for_q.append(reward)
+                rewards_for_q.append(reward.clone().detach())
                 total_rewards += reward
                 print(f"Reward for layer {layer + 1}: {reward}")
 
