@@ -408,11 +408,15 @@ def train(rank, world_size):
                         edge_index_for_val, _ = dense_to_sparse(new_adj_for_val)
                         node_features_for_val[batch.n_id] = gcn_models[layer].module(node_features_for_val[batch.n_id], edge_index_for_val)
 
+                        del new_neighbors_for_val, new_adj_for_val, edge_index_for_val
+
                 val_output = final_layer.module(node_features_for_val[idx_val])
                 val_output = F.log_softmax(val_output, dim=1)
                 val_loss = F.nll_loss(val_output, labels[idx_val])
                 val_acc = accuracy(val_output, labels[idx_val])
                 print(f"Validation Loss: {val_loss.item()}, Validation Accuracy: {val_acc.item()}")
+
+                del node_features_for_val, edge_index, val_output
 
 
              # or val_acc.item() > best_acc
