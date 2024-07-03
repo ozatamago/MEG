@@ -211,9 +211,7 @@ def train(rank, world_size):
                 sampled_indices = sample_nodes(batch.x, num_of_samples=140)
             
                 adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
-
-                print(f"new_adj_probs: {torch.sigmoid(adj_logits / 10)}")
-
+                
                 # エッジの数を計算
                 num_edges = new_neighbors.size(0)
                 num_flip = int(num_edges * 0.001)
