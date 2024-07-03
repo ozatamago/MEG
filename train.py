@@ -371,7 +371,7 @@ def train(rank, world_size):
                 gcn_model.to(rank)
                 gcn_model.eval()
 
-            neighbor_loaders = [
+            neighbor_loaders_for_val = [
                 NeighborLoader(
                     data,
                     num_neighbors=[100] * (num_model_layers - i),  # 各層で処理するノードを減らす
@@ -416,7 +416,7 @@ def train(rank, world_size):
                 val_acc = accuracy(val_output, labels[idx_val])
                 print(f"Validation Loss: {val_loss.item()}, Validation Accuracy: {val_acc.item()}")
 
-                del node_features_for_val, edge_index, val_output, neighbor_loaders
+                del node_features_for_val, edge_index, val_output, neighbor_loaders_for_val
 
 
              # or val_acc.item() > best_acc
