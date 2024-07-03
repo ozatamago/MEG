@@ -280,11 +280,17 @@ def train(rank, world_size):
             # cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
             cumulative_reward = sum(rewards_for_adj[l:]) + (10 * num_model_layers * acc)
             cumulative_rewards.append(cumulative_reward)
+        cumulative_rewards_for_q = []
+        for l in range(num_model_layers):
+            # cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
+            cumulative_reward = sum(rewards_for_q[l:]) + (10 * num_model_layers * acc)
+            cumulative_rewards_for_q.append(cumulative_reward)
 
         print(f"Cumulative rewards: {cumulative_rewards}")
 
         # Convert cumulative_rewards to FloatTensor
         cumulative_rewards = torch.tensor(cumulative_rewards, dtype=torch.float, device=device)
+        cumulative_rewards_for_q = torch.tensor(cumulative_rewards_for_q, dtype=torch.float, device=device)
 
         # Calculate advantages
         advantages_layers = []
@@ -342,7 +348,7 @@ def train(rank, world_size):
         for i, (q_network, q_opt) in enumerate(zip(q_networks, optimizer_q)):
             # print(f"i: {i}")
             q_opt.zero_grad()
-            q_loss = F.mse_loss(q_functions[i], cumulative_rewards[i].unsqueeze(0))
+            q_loss = F.mse_loss(q_functions[i], cumulative_rewards_for_q[i].unsqueeze(0))
             # visualize_tensor(v_loss, output_path=f"v_loss_{i}")
             print(f"V-network loss for layer {i + 1}: {q_loss.item()}")
             q_loss.backward()
