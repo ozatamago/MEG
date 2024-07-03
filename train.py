@@ -416,7 +416,7 @@ def train(rank, world_size):
                 val_acc = accuracy(val_output, labels[idx_val])
                 print(f"Validation Loss: {val_loss.item()}, Validation Accuracy: {val_acc.item()}")
 
-                del node_features_for_val, edge_index, val_output
+                del node_features_for_val, edge_index, val_output、neighbor_loaders
 
 
              # or val_acc.item() > best_acc
