@@ -207,7 +207,7 @@ def train(rank, world_size):
                 updated_features_for_adj = updated_features[batch.n_id].clone().detach()
 
                 # ノードをサンプリング
-                sampled_indices = sample_nodes(batch.x, num_of_samples=140)
+                sampled_indices = sample_nodes(batch.n_id, num_of_samples=140)
             
                 adj_logits, new_neighbors = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, updated_features_for_adj)
                 
