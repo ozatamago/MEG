@@ -391,6 +391,7 @@ def train(rank, world_size):
                 for layer, layer_loader in enumerate(neighbor_loaders):
                     for batch in layer_loader:
                         print(f"validation layer: {layer}")
+                        print(f"batch.n_id size: {batch.n_id.size}")
 
                         # 全ノードに対して新しい隣接行列を一括で生成
                         _, new_neighbors_for_val = adj_generators[layer].module.generate_new_neighbors(batch.edge_index, node_features_for_val[batch.n_id])
