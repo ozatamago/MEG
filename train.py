@@ -213,12 +213,15 @@ def train(rank, world_size):
 
                 print(f"new_adj_probs: {torch.sigmoid(adj_logits / 10)}")
 
+                # エッジの数を計算
                 num_edges = new_neighbors.size(0)
                 num_flip = int(num_edges * 0.001)
                 
                 if num_flip > 0:
                     flip_indices = torch.randperm(num_edges)[:num_flip]  # ランダムにインデックスを選択
-                    new_neighbors[flip_indices] = 1 - new_neighbors[flip_indices]  # 0を1に、1を0に反転
+                    for idx in flip_indices:
+                        if new_neighbors[idx] == 1:
+                            new_neighbors[idx] = 0  # 1を0に反転
                                     
                 # ログ確率の計算
                 log_probs = nn.BCEWithLogitsLoss(reduction="sum")(adj_logits / 10 + 1e-9, new_neighbors.float())
