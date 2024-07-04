@@ -230,7 +230,7 @@ def train(rank, world_size):
 
                 value_function = v_networks[layer].module(updated_features[sampled_indices].detach().unsqueeze(0)).view(-1)
                 value_functions.append(value_function)
-                print(f"Value function for layer {layer + 1}: {value_function}")
+                # print(f"Value function for layer {layer + 1}: {value_function}")
 
                 # Forward pass through GCN using all nodes
                 edge_index, _ = dense_to_sparse(adj_clone)
@@ -271,6 +271,8 @@ def train(rank, world_size):
         print(f"Training accuracy: {acc * 100:.2f}%")  # Print accuracy
         epoch_acc += acc
         # Calculate cumulative rewards for each layer
+        print(f"V_functions: {v_functions}")
+        print(f"Q_functions: {q_functions}")
         cumulative_rewards = []
         for l in range(num_model_layers):
             # cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
