@@ -37,8 +37,8 @@ class MultiheadAttentionLayer(nn.Module):
             return h_prime.mean(dim=1)
 
     def _prepare_attentional_mechanism_input(self, Wh):
-        Wh1 = torch.einsum("ijk,kl->ijl", Wh, self.a[:self.out_features * self.num_heads])
-        Wh2 = torch.einsum("ijk,kl->ijl", Wh, self.a[self.out_features * self.num_heads:])
+        Wh1 = torch.einsum("ijk,kl->ijl", Wh, self.a)
+        Wh2 = torch.einsum("ijk,kl->ijl", Wh, self.a)
         e = Wh1 + Wh2.transpose(0, 1)
         return self.leakyrelu(e)
 
