@@ -228,9 +228,10 @@ def train(rank, world_size):
                 adj_clone = torch.zeros((batch.num_nodes, batch.num_nodes), device=device)
                 adj_clone[batch.edge_index[0], batch.edge_index[1]] = new_neighbors.float()
 
-                value_function = v_networks[layer].module(updated_features[sampled_indices].detach().unsqueeze(0)).view(-1)
-                value_functions.append(value_function)
-                # print(f"Value function for layer {layer + 1}: {value_function}")
+                with sdpa_kernel(SDPBackend.MATH):
+                    value_function = v_networks[layer].module(updated_features[sampled_indices].detach().unsqueeze(0)).view(-1)
+                    value_functions.append(value_function)
+                    # print(f"Value function for layer {layer + 1}: {value_function}")
 
                 # Forward pass through GCN using all nodes
                 edge_index, _ = dense_to_sparse(adj_clone)
