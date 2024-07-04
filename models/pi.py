@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.utils import softmax
 
 class MultiHeadGraphAttentionLayer(nn.Module):
     def __init__(self, in_features, out_features, num_heads, dropout, alpha, concat=True, device='cuda'):
@@ -25,11 +24,15 @@ class MultiHeadGraphAttentionLayer(nn.Module):
         self.leakyrelu = nn.LeakyReLU(self.alpha).to(device)
         self.dropout = nn.Dropout(dropout).to(device)
 
-    def forward(self, h, adj):
+    def forward(self, h, edge_index):
         Wh_all_heads = []
         for head in range(self.num_heads):
             Wh = torch.mm(h, self.W[head])  # 各ヘッドで重み行列を適用
             e = self._prepare_attentional_mechanism_input(Wh, head)
+
+            # adj を edge_index から生成
+            adj = torch.zeros_like(e)
+            adj[edge_index[0], edge_index[1]] = 1
 
             zero_vec = -9e15 * torch.ones_like(e).to(self.device)
             attention = torch.where(adj > 0, e, zero_vec)
@@ -78,7 +81,7 @@ class AdjacencyGenerator(nn.Module):
             x_j = x[edge_index[1]]
 
             # Apply Multi-Head Attention
-            adj_logits = self.attention_layers[layer](x_j, edge_index)
+            adj_logits = self.attention_layers[layer](x, edge_index)
             adj_logits_all_layers.append(adj_logits)
 
             # Update features for the next layer
