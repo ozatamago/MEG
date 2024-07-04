@@ -239,8 +239,9 @@ def train(rank, world_size):
 
                 updated_features[batch.n_id] = updated_batch_features
 
-                q_function = q_networks[layer].module(updated_features[sampled_indices].detach().unsqueeze(0)).view(-1)
-                q_functions.append(q_function)
+                with sdpa_kernel(SDPBackend.MATH):
+                    q_function = q_networks[layer].module(updated_features[sampled_indices].detach().unsqueeze(0)).view(-1)
+                    q_functions.append(q_function)
 
                 # Calculate reward
                 sum_new_neighbors = adj_clone.sum().item()  # 合計を計算
