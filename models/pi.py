@@ -15,7 +15,7 @@ class MultiheadAttentionLayer(nn.Module):
 
         self.W = nn.Parameter(torch.empty(size=(in_features, out_features * num_heads)))
         nn.init.xavier_uniform_(self.W.data, gain=1.414)
-        self.a = nn.Parameter(torch.empty(size=(num_heads, 2 * out_features)))
+        self.a = nn.Parameter(torch.empty(size=(2 * out_features, num_heads)))
         nn.init.xavier_uniform_(self.a.data, gain=1.414)
 
         self.leakyrelu = nn.LeakyReLU(self.alpha)
@@ -37,9 +37,9 @@ class MultiheadAttentionLayer(nn.Module):
             return h_prime.mean(dim=1)
 
     def _prepare_attentional_mechanism_input(self, Wh):
-        Wh1 = torch.matmul(Wh, self.a[:, :self.out_features].transpose(0, 1))
-        Wh2 = torch.matmul(Wh, self.a[:, self.out_features:].transpose(0, 1))
-        e = Wh1 + Wh2.transpose(0, 1)
+        Wh1 = torch.matmul(Wh, self.a[:self.out_features, :])
+        Wh2 = torch.matmul(Wh, self.a[self.out_features:, :])
+        e = Wh1 + Wh2.transpose(-1, -2)
         return self.leakyrelu(e)
 
     def __repr__(self):
