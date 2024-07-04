@@ -271,7 +271,7 @@ def train(rank, world_size):
         print(f"Training accuracy: {acc * 100:.2f}%")  # Print accuracy
         epoch_acc += acc
         # Calculate cumulative rewards for each layer
-        print(f"V_functions: {v_functions}")
+        print(f"V_functions: {value_functions}")
         print(f"Q_functions: {q_functions}")
         cumulative_rewards = []
         for l in range(num_model_layers):
