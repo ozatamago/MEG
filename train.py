@@ -506,7 +506,7 @@ def train(rank, world_size):
                     edge_index_for_test, _ = dense_to_sparse(new_adj_for_test)
                     node_features_for_test[batch.n_id] = gcn_models[layer].module(node_features_for_test[batch.n_id], edge_index_for_test)
 
-            output = final_layer.module(node_features[idx_test])
+            output = final_layer.module(node_features_for_test[idx_test])
             output = F.log_softmax(output, dim=1)
             test_acc = accuracy(output, labels[idx_test])
             print(f"Test accuracy: {test_acc * 100:.2f}%")
