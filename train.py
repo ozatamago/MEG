@@ -274,7 +274,7 @@ def train(rank, world_size):
         cumulative_rewards = []
         for l in range(num_model_layers):
             # cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
-            cumulative_reward = sum(rewards_for_adj[l:]) + (10 * num_model_layers * acc)
+            cumulative_reward = sum(rewards_for_adj[l:]) + (num_model_layers * acc)
             cumulative_rewards.append(cumulative_reward)
         cumulative_rewards_for_q = []
         for l in range(num_model_layers):
